@@ -2028,6 +2028,11 @@ const editForm = {
 
 function openEditModal(row){
   document.getElementById('editFormError').style.display = 'none';
+  // se um salvamento anterior tiver ficado "preso" (ex: fechou o modal no
+  // meio do envio), garante que o botão volta ao normal ao abrir de novo
+  const submitBtn = document.getElementById('editFormSubmit');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Salvar';
   if(row){
     document.getElementById('editModalTitle').textContent = 'Editar escola';
     editForm.zonaOriginal.value = row.zona || '';
@@ -2097,6 +2102,8 @@ document.getElementById('editFormSubmit').onclick = async ()=>{
   btn.disabled = true; btn.textContent = 'Salvando...';
   try{
     await postToScript('escola-salvar', payload);
+    btn.disabled = false; btn.textContent = 'Salvar';
+    pendingRefresh = false; // evita que o closeEditModal dispare uma atualização duplicada
     closeEditModal();
     await refreshAllData();
   } catch(e){
