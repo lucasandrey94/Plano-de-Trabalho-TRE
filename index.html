@@ -114,7 +114,7 @@
   .map-ch-toggle.disabled{ opacity:0.5; cursor:default; }
   .chmap-icon{ background:none; border:none; }
   .chmap-dot{ box-shadow:0 0 0 1.5px #fff; }
-  .chmap-pin{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.45); color:#fff; font:700 12px/1 -apple-system,"Segoe UI",sans-serif; }
+  .chmap-pin{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.45); color:#fff; font-weight:700; line-height:1; font-family:-apple-system,"Segoe UI",sans-serif; }
   .chmap-sub{ color:#6b6459; font-size:0.8rem; margin-bottom:6px; }
   .chmap-list{ max-height:220px; overflow:auto; border-top:1px solid #e6e1d4; margin-bottom:2px; }
   .chmap-item{ padding:7px 0; border-bottom:1px solid #e6e1d4; font-family:-apple-system,"Segoe UI",sans-serif; }
@@ -229,7 +229,7 @@
   .emp-progress-card:not(.collapsed) .collapse-ind svg{ transform:rotate(180deg); }
   .emp-progress-card .collapse-body{ margin-top:14px; }
   /* ---- Chamados ---- */
-  .ch-grid{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:14px; margin-top:14px; }
+  .ch-grid{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:22px; }
   @media (max-width:900px){ .ch-grid{ grid-template-columns:minmax(0,1fr); } }
   .ch-card{ background:var(--paper-2); border:1px solid var(--line); border-radius:6px; padding:18px 20px; display:flex; flex-direction:column; min-width:0; }
   .ch-card h3{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:1.05rem; font-weight:650; margin:0; }
@@ -239,7 +239,8 @@
   .ch-tools select{ padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:0.84rem; font-family:-apple-system,"Segoe UI",sans-serif; }
   .ch-btn-out{ padding:6px 12px; border-radius:6px; border:1px solid var(--accent); background:transparent; color:var(--accent); font-size:0.84rem; font-weight:600; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; margin-left:auto; display:inline-flex; align-items:center; gap:6px; }
   .ch-btn-out:hover{ background:var(--accent); color:#fff; }
-  .ch-list{ max-height:420px; overflow:auto; border-top:1px solid var(--line); }
+  .ch-list{ max-height:480px; overflow:auto; border-top:1px solid var(--line); }
+  .ch-card-main{ min-height:400px; }
   .ch-item{ display:flex; gap:12px; justify-content:space-between; padding:11px 2px; border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; }
   .ch-item:last-child{ border-bottom:none; }
   .ch-item-main{ min-width:0; flex:1; }
@@ -986,9 +987,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div id="empProgressList"></div>
     </div>
   </div>
+</section>
+
+</main>
+
+<!-- Chamados: mesma largura dos gráficos abaixo, com a lista como card principal -->
+<section class="wide-section">
+  <h2>Chamados</h2>
   <div class="ch-grid" id="chamadosSection">
-    <div class="ch-card">
-      <div class="ch-head"><h3>Chamados</h3><div class="ch-counts" id="chCounts"></div></div>
+    <div class="ch-card ch-card-main">
+      <div class="ch-head"><h3>Lista de chamados</h3><div class="ch-counts" id="chCounts"></div></div>
       <div class="ch-tools">
         <select id="chFiltroStatus" aria-label="Filtrar por status">
           <option value="">Todos os status</option>
@@ -1008,8 +1016,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
   </div>
 </section>
-
-</main>
 
 <section class="wide-section">
   <h2>Demanda por zona (todas as 14 zonas da planilha)</h2>
@@ -1431,6 +1437,9 @@ function clearFilter(key){
   else if(key==='campo'){ patch[key] = 'both'; document.getElementById('campoFilter').value='both'; }
   else if(key==='ddz'){ patch[key] = null; document.getElementById('ddzFilter').value=''; }
   else if(key==='emp'){ patch[key] = null; document.getElementById('empFilterSelect').value=''; }
+  // filtros do card de chamados (aparecem como chip no modo Chamados)
+  else if(key==='chStatus') document.getElementById('chFiltroStatus').value='';
+  else if(key==='chEmp') document.getElementById('chFiltroEmp').value='';
   else patch[key] = null;
   Object.assign(state, patch);
   syncDemandaSelect();
@@ -1443,6 +1452,8 @@ function clearAllFilters(){
   document.getElementById('campoFilter').value='both';
   document.getElementById('ddzFilter').value='';
   document.getElementById('empFilterSelect').value='';
+  document.getElementById('chFiltroStatus').value='';
+  document.getElementById('chFiltroEmp').value='';
   setFilter({ zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo:'both', ddz:null, search:'' });
 }
 
@@ -1639,6 +1650,13 @@ function renderChips(){
   if(state.emp) chips.push({key:'emp', label:'Empresa: '+state.emp});
   if(state.campo && state.campo!=='both') chips.push({key:'campo', label: state.campo==='chamados' ? 'Mapa: chamados' : (state.campo==='ac' ? 'Só Ar-condicionado' : 'Só Predial')});
   if(state.ddz) chips.push({key:'ddz', label:'Distrito: '+state.ddz});
+  if(state.campo==='chamados'){
+    // no modo Chamados os filtros do card também valem pra tabela e mapa
+    const chSt = document.getElementById('chFiltroStatus').value;
+    const chEmp = document.getElementById('chFiltroEmp').value;
+    if(chSt) chips.push({key:'chStatus', label:'Chamados: '+escapeHtml(chSt)});
+    if(chEmp) chips.push({key:'chEmp', label:'Chamados: '+escapeHtml(chEmp)});
+  }
   const box = document.getElementById('activeChips');
   if(!chips.length){ box.innerHTML=''; return; }
   box.innerHTML = chips.map(c=>`<span class="chip">${c.label}<button data-k="${c.key}">✕</button></span>`).join('')
@@ -1692,7 +1710,12 @@ function renderThead(){
   });
 }
 
-function getRows(){
+// filtros que dizem respeito à escola em si (zona, busca, demanda, status AC/
+// predial, criticidade, distrito) — valem pra tabela e pros chamados
+function filtrosDeEscolaAtivos(){
+  return state.zone!=='TODAS' || !!state.search || state.demanda!==null || !!state.ac || !!state.pred || !!state.crit || !!state.ddz;
+}
+function getRowsEscola(){
   let rows = [];
   if(state.zone==='TODAS'){
     zoneNames.forEach(z=> rows = rows.concat(zonas[z].map(r=>Object.assign({zona:z}, r))));
@@ -1705,7 +1728,13 @@ function getRows(){
   if(state.ac) rows = rows.filter(r=> state.ac===DONE_MARKER ? isDone(r.ac_status) : state.ac===PENDING_MARKER ? isPending(r.ac_status) : r.ac_status===state.ac);
   if(state.pred) rows = rows.filter(r=> state.pred===DONE_MARKER ? isDone(r.pred_status) : state.pred===PENDING_MARKER ? isPending(r.pred_status) : r.pred_status===state.pred);
   if(state.crit) rows = rows.filter(r=>r.crit_elet===state.crit);
-  // "Chamados" é um modo só do mapa: a tabela continua como em "AC e Predial"
+  if(state.ddz) rows = rows.filter(r=> r.ddz===state.ddz);
+  return rows;
+}
+
+function getRows(){
+  let rows = getRowsEscola();
+  // "Chamados" monta a tabela à parte (ver renderDetail); aqui vale como "AC e Predial"
   const campo = state.campo==='chamados' ? 'both' : state.campo;
   if(state.emp && campo && campo!=='both'){
     // combinacao exata: clicou numa barra especifica (empresa + AC ou Predial)
@@ -1717,7 +1746,6 @@ function getRows(){
     if(campo==='ac') rows = rows.filter(r=> acHasDemand(r));
     if(campo==='pred') rows = rows.filter(r=> predHasDemand(r));
   }
-  if(state.ddz) rows = rows.filter(r=> r.ddz===state.ddz);
   return rows;
 }
 
@@ -1838,9 +1866,9 @@ function renderLeafletMap(){
   if(el) el.textContent = rows.length + ' de ' + totalComCoord + ' escola(s) no mapa';
 }
 
-// ---- Mapa no modo "Chamados": só as escolas que têm chamado ----
-// Obedece aos filtros de status e empresa do card de chamados (e ao clique no
-// gráfico de chamados), não aos filtros da tabela. Concluídos começam escondidos.
+// ---- Modo "Chamados": mapa e tabela mostram só as escolas que têm chamado ----
+// Obedece aos filtros da barra da tabela e aos do card de chamados (status,
+// empresa, clique no gráfico). Concluídos começam escondidos.
 // Cores fixas porque o mapa de fundo é sempre claro (mesmo esquema do PROGRESS_COLOR).
 const CH_MAP_COR = { 'Aberto':'#a9752c', 'Em andamento':'#7a3b2e', 'Concluído':'#2f5d50' };
 const CH_MAP_LEGENDA = { 'Aberto':'Aberto', 'Em andamento':'Em andamento', 'Concluído':'Todos concluídos' };
@@ -1856,6 +1884,8 @@ function normZona(z){
   const d = String(z||'').match(/\d+/); // "63ª", "63" e "063ª" são a mesma zona
   return d ? String(Number(d[0])) : normChave(z);
 }
+const chaveEscola = r => normZona(r.zona) + '|' + normChave(r.local);
+const chaveChamado = c => normZona(c.zona) + '|' + normChave(c.escola);
 
 // casa cada chamado com a escola pelo nome + zona (normalizados); devolve as
 // escolas com a lista de chamados delas e os chamados sem escola encontrada
@@ -1863,13 +1893,14 @@ function casarChamadosComEscolas(){
   const indice = new Map();
   zoneNames.forEach(z=> zonas[z].forEach(r=>{
     if(!r.local) return; // linhas em branco da planilha
-    const k = normZona(z) + '|' + normChave(r.local);
-    if(!indice.has(k)) indice.set(k, Object.assign({zona:z}, r));
+    const row = Object.assign({zona:z}, r);
+    const k = chaveEscola(row);
+    if(!indice.has(k)) indice.set(k, row);
   }));
   const porEscola = new Map();
   const naoEncontrados = [];
   chamados.forEach(c=>{
-    const k = normZona(c.zona) + '|' + normChave(c.escola);
+    const k = chaveChamado(c);
     const row = indice.get(k);
     if(!row){ naoEncontrados.push(c); return; }
     if(!porEscola.has(k)) porEscola.set(k, { row, lista: [] });
@@ -1887,9 +1918,25 @@ function logarChamadosSemEscola(lista){
   console.table(lista.map(c=>({ id:c.id, zona:c.zona, escola:c.escola, status:c.status, empresa:c.empresa })));
 }
 
+// escolas com chamados visíveis (filtros da barra + do card + "mostrar
+// concluídos"), cada uma com a lista dos chamados dela, mais urgente primeiro.
+// É a mesma lista pro mapa e pra tabela no modo Chamados.
+function escolasComChamados(){
+  const mostraConcluidos = !!chFiltroStatus.value || chMostrarConcluidos;
+  const { porEscola, naoEncontrados } = casarChamadosComEscolas();
+  logarChamadosSemEscola(naoEncontrados);
+  const visiveis = new Set(chamadosFiltrados().filter(c=> mostraConcluidos || c.status !== 'Concluído'));
+  const escolas = [];
+  porEscola.forEach(({row, lista})=>{
+    const vis = lista.filter(c=> visiveis.has(c))
+      .sort((a,b)=> chUrgencia(b) - chUrgencia(a) || Number(b.id) - Number(a.id));
+    if(vis.length) escolas.push({ row, lista: vis });
+  });
+  return escolas;
+}
+
 function renderMapaChamados(){
   const filtroStatus = chFiltroStatus.value;
-  const mostraConcluidos = !!filtroStatus || chMostrarConcluidos;
 
   const toggle = document.getElementById('mapChToggle');
   const toggleCb = document.getElementById('mapChConcluidos');
@@ -1904,16 +1951,7 @@ function renderMapaChamados(){
     `<span class="legend-item"><span class="legend-dot chmap-dot" style="background:${CH_MAP_COR[s]}"></span>${CH_MAP_LEGENDA[s]}</span>`
   ).join('');
 
-  const { porEscola, naoEncontrados } = casarChamadosComEscolas();
-  logarChamadosSemEscola(naoEncontrados);
-
-  const visiveis = new Set(chamadosFiltrados().filter(c=> mostraConcluidos || c.status !== 'Concluído'));
-  const escolas = [];
-  porEscola.forEach(({row, lista})=>{
-    const vis = lista.filter(c=> visiveis.has(c))
-      .sort((a,b)=> chUrgencia(b) - chUrgencia(a) || Number(b.id) - Number(a.id));
-    if(vis.length) escolas.push({ row, lista: vis });
-  });
+  const escolas = escolasComChamados();
   const noMapa = escolas.filter(e=> e.row.lat && e.row.lon);
 
   leafletLayer.clearLayers();
@@ -1922,9 +1960,11 @@ function renderMapaChamados(){
     const r = e.row, n = e.lista.length;
     const topo = Math.max(...e.lista.map(chUrgencia));
     const cor = topo===2 ? CH_MAP_COR['Aberto'] : (topo===1 ? CH_MAP_COR['Em andamento'] : CH_MAP_COR['Concluído']);
-    const tam = n > 9 ? 28 : 24;
+    // tamanho cresce com a quantidade de chamados: 1 = 24px, +5px por chamado, até 52px
+    const tam = Math.min(52, 24 + 5 * (n - 1));
+    const fonte = Math.round(12 + (tam - 24) / 5);
     const marker = L.marker([r.lat, r.lon], {
-      icon: L.divIcon({ className:'chmap-icon', html:`<span class="chmap-pin" style="background:${cor}">${n}</span>`, iconSize:[tam,tam], iconAnchor:[tam/2,tam/2], popupAnchor:[0,-tam/2] }),
+      icon: L.divIcon({ className:'chmap-icon', html:`<span class="chmap-pin" style="background:${cor};font-size:${fonte}px">${n}</span>`, iconSize:[tam,tam], iconAnchor:[tam/2,tam/2], popupAnchor:[0,-tam/2] }),
       title: r.local + ': ' + n + ' chamado' + (n===1?'':'s'),
       zIndexOffset: topo * 1000 // os mais urgentes ficam por cima
     });
@@ -1959,14 +1999,15 @@ function renderMapaChamados(){
 }
 document.getElementById('mapChConcluidos').addEventListener('change', (e)=>{
   chMostrarConcluidos = e.target.checked;
-  renderLeafletMap();
+  renderDetail(); // tabela e mapa
 });
 
 initLeafletMap();
 
 function renderDetail(skipMap){
   renderThead();
-  let rows = getRows();
+  // no modo Chamados a tabela mostra as mesmas escolas do mapa
+  let rows = state.campo==='chamados' ? escolasComChamados().map(e=> e.row) : getRows();
   rows = sortRows(rows);
   lastRenderedRows = rows;
   document.getElementById('listCount').textContent = rows.length + ' escola(s) listada(s)';
@@ -2004,6 +2045,7 @@ function renderDetail(skipMap){
   // mexe no mapa agora — espera fechar (ver popupclose acima) pra não
   // fechar o popup no meio da leitura
   if(skipMap){ pendingMapRefresh = true; } else { renderLeafletMap(); }
+  renderChamados(true); // os filtros da barra também valem pra lista de chamados
 }
 
 // =====================================================================
@@ -2433,7 +2475,8 @@ const CH_EMPRESAS = ['PLATINA','CB BOTELHO','SEMED','ECOLIFE','MCA','MMGR','ENS'
 const CH_STATUS = ['Aberto','Em andamento','Concluído'];
 let chamados = [];
 let chSnapshot = null;
-let chamadoRow = null;
+let chamadoRow = null;     // escola do chamado novo
+let chamadoEditId = null;  // id do chamado sendo editado (null = chamado novo)
 const chStatusCls = s => s==='Concluído' ? 'done' : (s==='Em andamento' ? 'prog' : 'open');
 const chModalOverlay = document.getElementById('chamadoModalOverlay');
 const chFiltroStatus = document.getElementById('chFiltroStatus');
@@ -2456,31 +2499,44 @@ async function refreshChamados(silent){
   if(silent && snap === chSnapshot) return;
   chSnapshot = snap;
   chamados = lista;
-  renderChamados(silent);
-  // mapa no modo Chamados: redesenha junto, mas se tiver popup aberto espera
-  // fechar (mesma regra do refreshAllData, pra não fechar no meio da leitura)
-  if(state.campo === 'chamados'){
-    if(mapPopupOpen) pendingMapRefresh = true; else renderLeafletMap();
-  }
+  // no modo Chamados a tabela e o mapa dependem dos chamados: redesenha tudo
+  // (o mapa espera o popup fechar, mesma regra do refreshAllData)
+  if(state.campo === 'chamados') renderDetail(mapPopupOpen);
+  else renderChamados(silent);
 }
 
-// filtros do card (status, empresa, clique no gráfico) valem pra lista e pro mapa
+// filtros do card (status, empresa, clique no gráfico): no modo Chamados
+// valem também pra tabela e pro mapa
 function aplicarFiltroChamados(){
-  renderChamados(true);
-  if(state.campo === 'chamados') renderLeafletMap();
+  if(state.campo === 'chamados'){ renderChips(); renderDetail(); }
+  else renderChamados(true);
+}
+
+// chamados que passam pelos filtros da barra da tabela: os de escola (zona,
+// busca, demanda, distrito...) pela escola do chamado; "Empresa" pela empresa
+// do chamado; "Só Ar-condicionado"/"Só Predial" pela categoria do chamado
+function chamadosNoEscopo(){
+  const escolas = filtrosDeEscolaAtivos() ? new Set(getRowsEscola().map(chaveEscola)) : null;
+  const categoria = state.campo==='ac' ? 'Ar-condicionado' : (state.campo==='pred' ? 'Predial' : null);
+  return chamados.filter(c =>
+    (!escolas || escolas.has(chaveChamado(c))) &&
+    (!state.emp || c.empresa === state.emp) &&
+    (!categoria || c.categoria === categoria));
 }
 
 function chamadosFiltrados(){
-  return chamados
+  return chamadosNoEscopo()
     .filter(c => !chFiltroStatus.value || c.status === chFiltroStatus.value)
     .filter(c => !chFiltroEmp.value || c.empresa === chFiltroEmp.value)
     .sort((a,b)=> Number(b.id) - Number(a.id));
 }
 
 function renderChamados(silent){
-  // contadores (sobre todos os chamados visíveis pra esse usuário)
+  if(chSnapshot === null) return; // ainda carregando (ou falhou): mantém a mensagem do card
+  const escopo = chamadosNoEscopo();
+  // contadores (sobre os chamados que passam pelos filtros da barra da tabela)
   const cont = { 'Aberto':0, 'Em andamento':0, 'Concluído':0 };
-  chamados.forEach(c=>{ if(cont[c.status]!==undefined) cont[c.status]++; });
+  escopo.forEach(c=>{ if(cont[c.status]!==undefined) cont[c.status]++; });
   document.getElementById('chCounts').innerHTML = CH_STATUS
     .map(s=>`<span class="ch-status ${chStatusCls(s)}">${cont[s]} ${s==='Aberto'?'abertos':(s==='Concluído'?'concluídos':'em andamento')}</span>`).join('');
 
@@ -2491,6 +2547,7 @@ function renderChamados(silent){
 
   const lista = chamadosFiltrados();
   const box = document.getElementById('chList');
+  const scrollAntes = box.scrollTop; // não volta a lista pro topo a cada atualização
   if(!chamados.length){
     box.innerHTML = `<div class="ch-empty">Nenhum chamado registrado.${IS_ADMIN ? ' Pra abrir um, use o ícone de chamado na coluna Ações da tabela.' : ''}</div>`;
   } else if(!lista.length){
@@ -2510,12 +2567,20 @@ function renderChamados(silent){
             : `<span class="ch-status ${chStatusCls(c.status)}">${escapeHtml(c.status)}</span>`}
           <div class="ch-item-actions">
             <button class="rowaction-btn ch-dl-btn" data-id="${escapeHtml(c.id)}" title="Baixar card deste chamado" aria-label="Baixar card do chamado ${escapeHtml(c.id)}">${dlIco}</button>
+            ${IS_ADMIN ? `<button class="rowaction-btn ch-edit-btn" data-id="${escapeHtml(c.id)}" title="Editar chamado" aria-label="Editar chamado ${escapeHtml(c.id)}">✎</button>` : ''}
             ${IS_ADMIN ? `<button class="rowaction-btn del-btn ch-del-btn" data-id="${escapeHtml(c.id)}" title="Excluir chamado" aria-label="Excluir chamado ${escapeHtml(c.id)}">🗑</button>` : ''}
           </div>
         </div>
       </div>`).join('');
+    box.scrollTop = scrollAntes;
     box.querySelectorAll('.ch-dl-btn').forEach(b=>{
       b.onclick = ()=> exportarCards(chamados.filter(c=>String(c.id)===b.dataset.id));
+    });
+    box.querySelectorAll('.ch-edit-btn').forEach(b=>{
+      b.onclick = ()=>{
+        const c = chamados.find(x=> String(x.id)===b.dataset.id);
+        if(c) openEditarChamado(c);
+      };
     });
     box.querySelectorAll('.ch-status-select').forEach(sel=>{
       sel.onchange = async ()=>{
@@ -2532,7 +2597,7 @@ function renderChamados(silent){
       };
     });
   }
-  renderChartChamados(silent);
+  renderChartChamados(escopo, silent);
 }
 
 // ---- Gráfico: chamados por empresa, empilhado por status ----
@@ -2562,28 +2627,35 @@ const chartChamados = new Chart(document.getElementById('chartChamados'), {
   }
 });
 
-function renderChartChamados(silent){
-  const emps = Array.from(new Set(chamados.map(c=>c.empresa).filter(Boolean)));
-  const total = e => chamados.filter(c=>c.empresa===e).length;
+// lista = chamados que passam pelos filtros da barra da tabela (não pelos do
+// próprio card, pra dar pra clicar em outra barra e trocar o filtro)
+function renderChartChamados(lista, silent){
+  const emps = Array.from(new Set(lista.map(c=>c.empresa).filter(Boolean)));
+  const total = e => lista.filter(c=>c.empresa===e).length;
   emps.sort((a,b)=> total(b)-total(a));
   chartChamados.data.labels = emps;
   chartChamados.data.datasets.forEach(ds=>{
-    ds.data = emps.map(e=> chamados.filter(c=>c.empresa===e && c.status===ds.label).length);
+    ds.data = emps.map(e=> lista.filter(c=>c.empresa===e && c.status===ds.label).length);
   });
   chartChamados.update(silent ? 'none' : undefined);
-  document.getElementById('chChartEmpty').style.display = emps.length ? 'none' : 'flex';
+  const vazio = document.getElementById('chChartEmpty');
+  vazio.textContent = chamados.length ? 'Nenhum chamado com esses filtros.' : 'Nenhum chamado registrado ainda.';
+  vazio.style.display = emps.length ? 'none' : 'flex';
 }
 
 chFiltroStatus.onchange = aplicarFiltroChamados;
 chFiltroEmp.onchange = aplicarFiltroChamados;
 
-// ---- Modal "Abrir chamado" ----
+// ---- Modal "Abrir chamado" / "Editar chamado" (o mesmo formulário) ----
 function empresaPadrao(row, categoria){
   const e = String((categoria==='Predial' ? row.pred_emp : row.ac_emp) || '').toUpperCase();
   return CH_EMPRESAS.includes(e) ? e : CH_EMPRESAS[0];
 }
+const textoBotaoChamado = ()=> chamadoEditId ? 'Salvar alterações' : 'Registrar chamado';
 function openChamadoModal(row){
   chamadoRow = row;
+  chamadoEditId = null;
+  document.getElementById('chModalTitle').textContent = 'Abrir chamado';
   document.getElementById('chEscola').textContent = row.local || '';
   document.getElementById('chEscolaMeta').textContent = 'Zona ' + (row.zona||'—') + (row.secoes!=null && row.secoes!=='' ? ' · ' + row.secoes + ' seções eleitorais' : '');
   const pendAC = row.ac_status && !isDone(row.ac_status) && acHasDemand(row);
@@ -2595,9 +2667,27 @@ function openChamadoModal(row){
   document.getElementById('chDescricao').value = '';
   document.getElementById('chFormError').style.display = 'none';
   const btn = document.getElementById('chFormSubmit');
-  btn.disabled = false; btn.textContent = 'Registrar chamado';
+  btn.disabled = false; btn.textContent = textoBotaoChamado();
   chModalOverlay.classList.add('open');
   setTimeout(()=> document.getElementById('chSecao').focus(), 50);
+}
+// editar: escola e zona ficam fixas (o chamado é daquela escola); o resto muda
+function openEditarChamado(c){
+  chamadoRow = null; // sem escola aqui, trocar a categoria não mexe na empresa
+  chamadoEditId = String(c.id);
+  document.getElementById('chModalTitle').textContent = 'Editar chamado #' + c.id;
+  document.getElementById('chEscola').textContent = c.escola || '';
+  document.getElementById('chEscolaMeta').textContent = 'Zona ' + (c.zona||'—') + (c.secoes ? ' · ' + c.secoes + ' seções eleitorais' : '');
+  document.getElementById('chSecao').value = c.secao || '';
+  document.getElementById('chCategoria').value = c.categoria || '';
+  document.getElementById('chEmpresa').value = c.empresa || '';
+  document.getElementById('chStatus').value = c.status || 'Aberto';
+  document.getElementById('chDescricao').value = c.descricao || '';
+  document.getElementById('chFormError').style.display = 'none';
+  const btn = document.getElementById('chFormSubmit');
+  btn.disabled = false; btn.textContent = textoBotaoChamado();
+  chModalOverlay.classList.add('open');
+  setTimeout(()=> document.getElementById('chDescricao').focus(), 50);
 }
 function closeChamadoModal(){ chModalOverlay.classList.remove('open'); }
 document.getElementById('chCategoria').onchange = (e)=>{
@@ -2617,26 +2707,37 @@ document.getElementById('chFormSubmit').onclick = async ()=>{
     document.getElementById('chDescricao').focus();
     return;
   }
+  const dados = {
+    secao: document.getElementById('chSecao').value.trim(),
+    categoria: document.getElementById('chCategoria').value,
+    empresa: document.getElementById('chEmpresa').value,
+    status: document.getElementById('chStatus').value,
+    descricao
+  };
+  if(!dados.categoria || !dados.empresa){
+    err.textContent = 'Escolha a categoria e a empresa.';
+    err.style.display = 'block';
+    return;
+  }
   const btn = document.getElementById('chFormSubmit');
-  btn.disabled = true; btn.textContent = 'Registrando...';
+  btn.disabled = true; btn.textContent = chamadoEditId ? 'Salvando...' : 'Registrando...';
   try{
-    await postToScript('chamado-salvar', {
-      zona: chamadoRow.zona || '',
-      escola: chamadoRow.local || '',
-      secoes: chamadoRow.secoes!=null ? String(chamadoRow.secoes) : '',
-      secao: document.getElementById('chSecao').value.trim(),
-      categoria: document.getElementById('chCategoria').value,
-      empresa: document.getElementById('chEmpresa').value,
-      status: document.getElementById('chStatus').value,
-      descricao
-    });
+    if(chamadoEditId){
+      await postToScript('chamado-editar', Object.assign({ id: chamadoEditId }, dados));
+    } else {
+      await postToScript('chamado-salvar', Object.assign({
+        zona: chamadoRow.zona || '',
+        escola: chamadoRow.local || '',
+        secoes: chamadoRow.secoes!=null ? String(chamadoRow.secoes) : ''
+      }, dados));
+    }
     closeChamadoModal();
     await refreshChamados();
   } catch(e){
-    err.textContent = 'Não deu pra registrar: ' + e.message;
+    err.textContent = (chamadoEditId ? 'Não deu pra salvar: ' : 'Não deu pra registrar: ') + e.message;
     err.style.display = 'block';
   } finally {
-    btn.disabled = false; btn.textContent = 'Registrar chamado';
+    btn.disabled = false; btn.textContent = textoBotaoChamado();
   }
 };
 
