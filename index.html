@@ -83,6 +83,7 @@
   .charts{ display:grid; grid-template-columns:repeat(6,1fr); gap:22px;}
   .chartcard{ background:var(--paper-2); border:1px solid var(--line); border-radius:6px; padding:18px; height:400px; display:flex; flex-direction:column; grid-column:span 2;}
   .chartcard.wide{ grid-column:span 3; height:480px; }
+  .chartcard.half{ grid-column:span 3; }
   .chartcard h3{ margin:0 0 2px; font-size:0.92rem; font-family:-apple-system,"Segoe UI",sans-serif; font-weight:650; flex:0 0 auto;}
   .chartcard .hint{ font-size:0.74rem; color:var(--muted); margin-bottom:8px; font-family:-apple-system,"Segoe UI",sans-serif; flex:0 0 auto;}
   .chartcard .canvaswrap{ position:relative; flex:1 1 auto; min-height:0; cursor:pointer;}
@@ -164,7 +165,7 @@
     .wide-section{ padding:6px 5vw 60px; }
     .kpis{ grid-template-columns:1fr 1fr; }
     .charts{ grid-template-columns:1fr; }
-    .chartcard, .chartcard.wide{ grid-column:auto; height:300px; }
+    .chartcard, .chartcard.wide, .chartcard.half{ grid-column:auto; height:300px; }
     .toolbar input{ flex:1 1 100%; }
     .toolbar{ flex-direction:column; align-items:stretch; }
     .exportbtn, .toolbar select{ width:100%; }
@@ -240,7 +241,14 @@
   .ch-empty{ color:var(--muted); font-size:0.88rem; padding:22px 4px; font-family:-apple-system,"Segoe UI",sans-serif; line-height:1.5; }
   .ch-canvas{ position:relative; flex:1; min-height:260px; }
   .ch-canvas-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:0.88rem; font-family:-apple-system,"Segoe UI",sans-serif; text-align:center; padding:20px; }
-  .rowaction-btn.ch-open-btn{ color:var(--accent); }
+  .acoes-cell{ white-space:nowrap; }
+  .ch-open-btn{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px 6px 10px; margin-right:6px; border-radius:20px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:0.82rem; font-weight:650; font-family:-apple-system,"Segoe UI",sans-serif; cursor:pointer; vertical-align:middle; white-space:nowrap; box-shadow:0 1px 0 rgba(0,0,0,0.12); }
+  .ch-open-btn:hover{ filter:brightness(1.1); }
+  .ch-open-btn:active{ transform:translateY(1px); }
+  .ch-open-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  :root:not([data-theme="light"]) .ch-open-btn{ color:#1a1512; }
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]) .ch-open-btn{ color:#fff; } }
+  .ch-open-big{ width:100%; justify-content:center; padding:11px 14px; font-size:0.95rem; margin:4px 0 18px; border-radius:8px; }
   .rowaction-btn svg{ display:block; }
   .ch-school-box{ background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:14px; font-family:-apple-system,"Segoe UI",sans-serif; }
   .ch-school-box .nm{ font-weight:650; font-size:0.95rem; }
@@ -988,19 +996,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
 </main>
 
 <section class="wide-section">
-  <h2>Demanda por zona e por empresa (todas as 14 zonas da planilha)</h2>
+  <h2>Demanda por zona (todas as 14 zonas da planilha)</h2>
   <div class="charts">
-    <div class="chartcard">
+    <div class="chartcard half">
       <h3>Escolas com demanda, por zona</h3>
       <div class="hint">Clique numa barra para filtrar a tabela</div>
       <div class="canvaswrap"><canvas id="chartDemanda"></canvas></div>
     </div>
-    <div class="chartcard">
+    <div class="chartcard half">
       <h3>Criticidade elétrica das escolas com demanda</h3>
       <div class="hint">Clique numa barra para filtrar a tabela</div>
       <div class="canvaswrap"><canvas id="chartCrit"></canvas></div>
     </div>
-    <div class="chartcard">
+    <div class="chartcard wide">
       <h3>Status — manutenção predial</h3>
       <div class="hint">Clique numa barra para filtrar a tabela</div>
       <div class="canvaswrap"><canvas id="chartPred"></canvas></div>
@@ -1009,11 +1017,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <h3>Status — manutenção de ar-condicionado</h3>
       <div class="hint">Clique numa barra para filtrar a tabela</div>
       <div class="canvaswrap"><canvas id="chartAC"></canvas></div>
-    </div>
-    <div class="chartcard wide">
-      <h3>Escolas por empresa</h3>
-      <div class="hint">Clique numa barra para filtrar a tabela</div>
-      <div class="canvaswrap"><canvas id="chartEmpresa"></canvas></div>
     </div>
   </div>
 </section>
@@ -1070,6 +1073,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="modal-meta" id="modalMeta"></div>
     <div class="badges" id="modalBadges"></div>
     <div class="maps-link" id="modalMapsLink"></div>
+    <button type="button" class="ch-open-btn ch-open-big" id="modalAbrirChamado" style="display:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5"/><path d="M16 19h6"/><path d="M19 16v6"/></svg><span>Abrir chamado para esta escola</span></button>
     <div class="modal-grid">
       <div class="modal-box" id="modalAcBox">
         <div class="k">Ar-condicionado</div>
@@ -1590,30 +1594,6 @@ function renderEmpProgressCard(){
 }
 renderEmpProgressCard();
 
-const chartEmpresa = new Chart(document.getElementById('chartEmpresa'), {
-  type:'bar',
-  data:{
-    labels: empNames,
-    datasets:[
-      {label:'Ar-condicionado', realValue:'ac', data: empNames.map(e=>empAC[e]||0), backgroundColor:'#a9752c'},
-      {label:'Predial', realValue:'pred', data: empNames.map(e=>empPred[e]||0), backgroundColor:'#2f5d50'},
-    ]
-  },
-  options:{
-    responsive:true, maintainAspectRatio:false,
-    scales:{y:{beginAtZero:true,display:false}},
-    plugins:{legend:{position:'bottom'}},
-    onClick:(evt, elements)=>{
-      if(!elements.length) return;
-      const el = elements[0];
-      const emp = empNames[el.index];
-      const campo = chartEmpresa.data.datasets[el.datasetIndex].realValue;
-      setFilter({ zone:'TODAS', emp, campo, demanda:null, ac:null, pred:null, crit:null });
-    },
-    onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
-  }
-});
-
 // =====================================================================
 // TABLE: zone buttons, chips, search, sortable columns
 // =====================================================================
@@ -1853,7 +1833,7 @@ function renderDetail(skipMap){
       <td data-label="Empresa (predial)">${predIsMine ? (r.pred_emp || '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
       <td data-label="Predial">${predIsMine ? `<div class="statuscell" title="${r.pred_status.replace(/"/g,'&quot;')}">${r.pred_status}</div>` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
       <td data-label="Criticidade elétrica">${critTag(r.crit_elet)}</td>
-      ${IS_ADMIN ? `<td data-label="Ações"><button class="rowaction-btn edit-btn" data-i="${i}" title="Editar">✎</button><button class="rowaction-btn ch-open-btn" data-i="${i}" title="Abrir chamado" aria-label="Abrir chamado"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5"/><path d="M16 19h6"/><path d="M19 16v6"/></svg></button><button class="rowaction-btn del-btn" data-i="${i}" title="Excluir">🗑</button></td>` : ''}
+      ${IS_ADMIN ? `<td data-label="Ações" class="acoes-cell"><button class="ch-open-btn" data-i="${i}" title="Abrir chamado para esta escola"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5"/><path d="M16 19h6"/><path d="M19 16v6"/></svg><span>Chamado</span></button><button class="rowaction-btn edit-btn" data-i="${i}" title="Editar">✎</button><button class="rowaction-btn del-btn" data-i="${i}" title="Excluir">🗑</button></td>` : ''}
     </tr>`;
   }).join('');
   document.getElementById('detailTable').querySelectorAll('button.escolabtn').forEach(b=>{
@@ -1989,6 +1969,13 @@ function openModal(row){
     itemsBox.innerHTML = '<ul class="items">' + pdf.items.map(it=>`<li>${it}</li>`).join('') + '</ul>';
   } else {
     itemsBox.innerHTML = '<p class="nodata">Não há vistoria oficial (PDF) disponível para esta escola — as informações acima vêm apenas da planilha.</p>';
+  }
+  const abrirChBtn = document.getElementById('modalAbrirChamado');
+  if(IS_ADMIN){
+    abrirChBtn.style.display = 'inline-flex';
+    abrirChBtn.onclick = ()=>{ closeModal(); openChamadoModal(row); };
+  } else {
+    abrirChBtn.style.display = 'none';
   }
   modalOverlay.classList.add('open');
 }
@@ -2279,10 +2266,6 @@ async function refreshAllData(silent){
   chartCrit.update(anim);
 
   recomputeEmpresaStats();
-  chartEmpresa.data.labels = empNames;
-  chartEmpresa.data.datasets[0].data = empNames.map(e=>empAC[e]||0);
-  chartEmpresa.data.datasets[1].data = empNames.map(e=>empPred[e]||0);
-  chartEmpresa.update(anim);
   renderEmpProgressCard();
 
   // tabela, mapa, contadores de zona e chips — tudo isso lê 'zonas' e 'state'
