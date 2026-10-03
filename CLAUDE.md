@@ -9,6 +9,7 @@ Responda sempre em português.
 - `index.html` — o site inteiro num arquivo só (HTML + CSS + JS). Publicado no GitHub Pages:
   https://lucasandrey94.github.io/Plano-de-Trabalho-TRE/
   O nome do arquivo tem que ser exatamente `index.html` (minúsculo). `Index.html` vira outro arquivo e o site não atualiza.
+- PWA (instalável): `manifest.webmanifest`, `sw.js` e a pasta `icons/` (selo "DET · SSIL · SEMED · MANAUS / TRE 2026"). O `sw.js` **não tem cache de propósito** — só repassa a abertura da página para a rede, e existe apenas para o navegador oferecer "Instalar app". Nunca adicionar cache, para não prender versão antiga no celular. Todos os caminhos são relativos (`./`), porque o site fica em `/Plano-de-Trabalho-TRE/` e não na raiz do domínio.
 - `apps-script/Code.gs` — backend em Google Apps Script (API + login). **Este arquivo contém as senhas de todos os usuários e NUNCA pode ser commitado** — o repositório é público. A pasta `apps-script/` está no `.gitignore`. Antes de qualquer commit, confira com `git status` que nada dessa pasta entrou.
 - Banco de dados: Google Sheets
   - ID: `180_gpk98fE8M0LEuGCbuvIZ8Ts-uz0xB7MQq9LFfMV8`
@@ -20,7 +21,7 @@ Responda sempre em português.
 
 ## Deploy
 
-- Site: commit + push do `index.html` na branch `main`. O GitHub Pages atualiza sozinho em ~1 minuto.
+- Site: commit + push do `index.html` (e de `manifest.webmanifest`, `sw.js` e `icons/`, quando mudarem) na branch `main`. O GitHub Pages atualiza sozinho em ~1 minuto.
 - Apps Script: não há deploy automático. O usuário cola o conteúdo de `apps-script/Code.gs` no editor do Apps Script e faz **Implantar → Gerenciar implantações → editar → Nova versão → Implantar**. Sempre "Nova versão" na implantação existente, nunca uma implantação nova (isso mudaria a URL).
 - Quando uma mudança mexer nos dois lados, avise que o Apps Script tem que ser atualizado **antes** do HTML.
 - Hospedar o site pelo próprio Apps Script (HtmlService) foi tentado e não funcionou; não voltar para essa opção.

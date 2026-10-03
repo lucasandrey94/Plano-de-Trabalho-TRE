@@ -4,6 +4,19 @@
 <meta charset="UTF-8">
 <title>Plano de Trabalho TRE 2026 — Manutenção Predial em Escolas</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- PWA: instalável no celular/computador (caminhos relativos: o site fica em /Plano-de-Trabalho-TRE/) -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#7a3b2e">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TRE 2026">
+<script>
+  // registra o service worker mínimo (sw.js, sem cache) só pra permitir "Instalar app"
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+</script>
 <style>
   :root{
     --ink:#1c2622; --paper:#f6f4ee; --paper-2:#ffffff; --line:#d8d2c2;
