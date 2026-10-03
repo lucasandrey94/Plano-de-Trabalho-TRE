@@ -108,6 +108,22 @@
   .leaflet-popup-content b{ display:block; margin-bottom:2px; }
   .popup-detail-btn{ margin-top:6px; padding:4px 10px; border-radius:4px; border:1px solid #7a3b2e; background:#7a3b2e; color:#fff; font-size:0.8rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .popup-detail-btn:hover{ opacity:0.85; }
+  /* mapa no modo Chamados (o popup do Leaflet é sempre branco, por isso cores fixas) */
+  .map-ch-toggle{ display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--muted); font-family:-apple-system,"Segoe UI",sans-serif; cursor:pointer; user-select:none; }
+  .map-ch-toggle input{ margin:0; accent-color:var(--accent); }
+  .map-ch-toggle.disabled{ opacity:0.5; cursor:default; }
+  .chmap-icon{ background:none; border:none; }
+  .chmap-dot{ box-shadow:0 0 0 1.5px #fff; }
+  .chmap-pin{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.45); color:#fff; font:700 12px/1 -apple-system,"Segoe UI",sans-serif; }
+  .chmap-sub{ color:#6b6459; font-size:0.8rem; margin-bottom:6px; }
+  .chmap-list{ max-height:220px; overflow:auto; border-top:1px solid #e6e1d4; margin-bottom:2px; }
+  .chmap-item{ padding:7px 0; border-bottom:1px solid #e6e1d4; font-family:-apple-system,"Segoe UI",sans-serif; }
+  .chmap-item:last-child{ border-bottom:none; }
+  .chmap-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .chmap-num{ font-weight:650; color:#1c2622; }
+  .chmap-st{ font-size:0.72rem; font-weight:600; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+  .chmap-meta{ color:#6b6459; font-size:0.78rem; margin-top:2px; }
+  .chmap-desc{ color:#1c2622; font-size:0.82rem; margin-top:3px; line-height:1.35; white-space:pre-wrap; word-break:break-word; }
   .statuscell{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-width:300px; cursor:help; }
   .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-family:-apple-system,"Segoe UI",sans-serif;}
   .chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 8px 5px 12px; border-radius:20px; background:var(--accent); color:#fff; font-size:0.8rem; font-weight:600;}
@@ -1035,6 +1051,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <option value="both">AC e Predial</option>
       <option value="ac">Só Ar-condicionado</option>
       <option value="pred">Só Predial</option>
+      <option value="chamados">Chamados</option>
     </select>
     <select id="ddzFilter">
       <option value="">Todos os distritos (DDZ)</option>
@@ -1053,7 +1070,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <h3>Mapa das escolas</h3>
         <div class="hint" id="leafletCount"></div>
       </div>
-      <div class="map-legend" id="mapLegend"></div>
+      <div class="map-controls-row">
+        <label class="map-ch-toggle" id="mapChToggle" style="display:none"><input type="checkbox" id="mapChConcluidos">Mostrar concluídos</label>
+        <div class="map-legend" id="mapLegend"></div>
+      </div>
     </div>
     <div id="leafletMap"></div>
   </div>
@@ -1400,6 +1420,7 @@ function setFilter(patch){
   Object.assign(state, patch);
   syncDemandaSelect();
   document.getElementById('empFilterSelect').value = state.emp || '';
+  document.getElementById('campoFilter').value = state.campo || 'both';
   renderBtns(); renderChips(); renderDetail();
   document.getElementById('detailTable').closest('section').scrollIntoView({behavior:'smooth', block:'start'});
 }
@@ -1616,7 +1637,7 @@ function renderChips(){
   if(state.pred) chips.push({key:'pred', label:'Predial: '+(state.pred===DONE_MARKER?'concluído/finalizado':state.pred===PENDING_MARKER?'pendente':state.pred)});
   if(state.crit) chips.push({key:'crit', label:'Criticidade: '+state.crit});
   if(state.emp) chips.push({key:'emp', label:'Empresa: '+state.emp});
-  if(state.campo && state.campo!=='both') chips.push({key:'campo', label: state.campo==='ac' ? 'Só Ar-condicionado' : 'Só Predial'});
+  if(state.campo && state.campo!=='both') chips.push({key:'campo', label: state.campo==='chamados' ? 'Mapa: chamados' : (state.campo==='ac' ? 'Só Ar-condicionado' : 'Só Predial')});
   if(state.ddz) chips.push({key:'ddz', label:'Distrito: '+state.ddz});
   const box = document.getElementById('activeChips');
   if(!chips.length){ box.innerHTML=''; return; }
@@ -1684,15 +1705,17 @@ function getRows(){
   if(state.ac) rows = rows.filter(r=> state.ac===DONE_MARKER ? isDone(r.ac_status) : state.ac===PENDING_MARKER ? isPending(r.ac_status) : r.ac_status===state.ac);
   if(state.pred) rows = rows.filter(r=> state.pred===DONE_MARKER ? isDone(r.pred_status) : state.pred===PENDING_MARKER ? isPending(r.pred_status) : r.pred_status===state.pred);
   if(state.crit) rows = rows.filter(r=>r.crit_elet===state.crit);
-  if(state.emp && state.campo && state.campo!=='both'){
+  // "Chamados" é um modo só do mapa: a tabela continua como em "AC e Predial"
+  const campo = state.campo==='chamados' ? 'both' : state.campo;
+  if(state.emp && campo && campo!=='both'){
     // combinacao exata: clicou numa barra especifica (empresa + AC ou Predial)
-    rows = rows.filter(r=> state.campo==='ac'
+    rows = rows.filter(r=> campo==='ac'
       ? (r.ac_emp===state.emp && acHasDemand(r))
       : (r.pred_emp===state.emp && predHasDemand(r)));
   } else {
     if(state.emp) rows = rows.filter(r=> (r.ac_emp===state.emp && acHasDemand(r)) || (r.pred_emp===state.emp && predHasDemand(r)));
-    if(state.campo==='ac') rows = rows.filter(r=> acHasDemand(r));
-    if(state.campo==='pred') rows = rows.filter(r=> predHasDemand(r));
+    if(campo==='ac') rows = rows.filter(r=> acHasDemand(r));
+    if(campo==='pred') rows = rows.filter(r=> predHasDemand(r));
   }
   if(state.ddz) rows = rows.filter(r=> r.ddz===state.ddz);
   return rows;
@@ -1782,6 +1805,9 @@ function initLeafletMap(){
 
 function renderLeafletMap(){
   if(!leafletLayer) return;
+  if(state.campo === 'chamados'){ renderMapaChamados(); return; }
+  document.getElementById('mapChToggle').style.display = 'none';
+  chNaoEncontradosLog = null; // ao voltar pro modo Chamados, lista de novo no console
   const mode = state.campo || 'both';
   renderMapLegend(MY_COMPANY ? 'ac' : mode);
   leafletLayer.clearLayers();
@@ -1811,6 +1837,130 @@ function renderLeafletMap(){
   const el = document.getElementById('leafletCount');
   if(el) el.textContent = rows.length + ' de ' + totalComCoord + ' escola(s) no mapa';
 }
+
+// ---- Mapa no modo "Chamados": só as escolas que têm chamado ----
+// Obedece aos filtros de status e empresa do card de chamados (e ao clique no
+// gráfico de chamados), não aos filtros da tabela. Concluídos começam escondidos.
+// Cores fixas porque o mapa de fundo é sempre claro (mesmo esquema do PROGRESS_COLOR).
+const CH_MAP_COR = { 'Aberto':'#a9752c', 'Em andamento':'#7a3b2e', 'Concluído':'#2f5d50' };
+const CH_MAP_LEGENDA = { 'Aberto':'Aberto', 'Em andamento':'Em andamento', 'Concluído':'Todos concluídos' };
+const CH_URGENCIA = { 'Aberto':2, 'Em andamento':1, 'Concluído':0 };
+const chUrgencia = c => CH_URGENCIA[c.status] !== undefined ? CH_URGENCIA[c.status] : 2;
+let chMostrarConcluidos = false;
+let chNaoEncontradosLog = null; // ids já listados no console, pra não repetir a cada clique
+
+function normChave(s){
+  return String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
+}
+function normZona(z){
+  const d = String(z||'').match(/\d+/); // "63ª", "63" e "063ª" são a mesma zona
+  return d ? String(Number(d[0])) : normChave(z);
+}
+
+// casa cada chamado com a escola pelo nome + zona (normalizados); devolve as
+// escolas com a lista de chamados delas e os chamados sem escola encontrada
+function casarChamadosComEscolas(){
+  const indice = new Map();
+  zoneNames.forEach(z=> zonas[z].forEach(r=>{
+    if(!r.local) return; // linhas em branco da planilha
+    const k = normZona(z) + '|' + normChave(r.local);
+    if(!indice.has(k)) indice.set(k, Object.assign({zona:z}, r));
+  }));
+  const porEscola = new Map();
+  const naoEncontrados = [];
+  chamados.forEach(c=>{
+    const k = normZona(c.zona) + '|' + normChave(c.escola);
+    const row = indice.get(k);
+    if(!row){ naoEncontrados.push(c); return; }
+    if(!porEscola.has(k)) porEscola.set(k, { row, lista: [] });
+    porEscola.get(k).lista.push(c);
+  });
+  return { porEscola, naoEncontrados };
+}
+
+function logarChamadosSemEscola(lista){
+  const ids = lista.map(c=>c.id).join(',');
+  if(ids === chNaoEncontradosLog) return;
+  chNaoEncontradosLog = ids;
+  if(!lista.length) return;
+  console.warn('[Mapa de chamados] ' + lista.length + ' chamado(s) sem escola correspondente (nome + zona) na planilha:');
+  console.table(lista.map(c=>({ id:c.id, zona:c.zona, escola:c.escola, status:c.status, empresa:c.empresa })));
+}
+
+function renderMapaChamados(){
+  const filtroStatus = chFiltroStatus.value;
+  const mostraConcluidos = !!filtroStatus || chMostrarConcluidos;
+
+  const toggle = document.getElementById('mapChToggle');
+  const toggleCb = document.getElementById('mapChConcluidos');
+  toggle.style.display = '';
+  toggleCb.checked = chMostrarConcluidos;
+  toggleCb.disabled = !!filtroStatus; // com status escolhido no card, quem manda é o filtro
+  toggle.classList.toggle('disabled', !!filtroStatus);
+  toggle.title = filtroStatus ? 'Filtro de status do card de chamados ativo: ' + filtroStatus : '';
+
+  const legenda = filtroStatus ? [filtroStatus] : ['Aberto','Em andamento'].concat(chMostrarConcluidos ? ['Concluído'] : []);
+  document.getElementById('mapLegend').innerHTML = legenda.map(s=>
+    `<span class="legend-item"><span class="legend-dot chmap-dot" style="background:${CH_MAP_COR[s]}"></span>${CH_MAP_LEGENDA[s]}</span>`
+  ).join('');
+
+  const { porEscola, naoEncontrados } = casarChamadosComEscolas();
+  logarChamadosSemEscola(naoEncontrados);
+
+  const visiveis = new Set(chamadosFiltrados().filter(c=> mostraConcluidos || c.status !== 'Concluído'));
+  const escolas = [];
+  porEscola.forEach(({row, lista})=>{
+    const vis = lista.filter(c=> visiveis.has(c))
+      .sort((a,b)=> chUrgencia(b) - chUrgencia(a) || Number(b.id) - Number(a.id));
+    if(vis.length) escolas.push({ row, lista: vis });
+  });
+  const noMapa = escolas.filter(e=> e.row.lat && e.row.lon);
+
+  leafletLayer.clearLayers();
+  lastLeafletRows = noMapa.map(e=> e.row);
+  noMapa.forEach((e,i)=>{
+    const r = e.row, n = e.lista.length;
+    const topo = Math.max(...e.lista.map(chUrgencia));
+    const cor = topo===2 ? CH_MAP_COR['Aberto'] : (topo===1 ? CH_MAP_COR['Em andamento'] : CH_MAP_COR['Concluído']);
+    const tam = n > 9 ? 28 : 24;
+    const marker = L.marker([r.lat, r.lon], {
+      icon: L.divIcon({ className:'chmap-icon', html:`<span class="chmap-pin" style="background:${cor}">${n}</span>`, iconSize:[tam,tam], iconAnchor:[tam/2,tam/2], popupAnchor:[0,-tam/2] }),
+      title: r.local + ': ' + n + ' chamado' + (n===1?'':'s'),
+      zIndexOffset: topo * 1000 // os mais urgentes ficam por cima
+    });
+    const itens = e.lista.map(c=>{
+      const cs = CH_MAP_COR[c.status] || CH_MAP_COR['Aberto'];
+      const meta = [c.secao ? 'Seção ' + escapeHtml(c.secao) : '', escapeHtml(c.categoria||''), escapeHtml(c.empresa||'')].filter(Boolean).join(' · ');
+      return `<div class="chmap-item">
+        <div class="chmap-top"><span class="chmap-num">#${escapeHtml(c.id)}</span><span class="chmap-st" style="background:${cs}22;color:${cs}">${escapeHtml(c.status||'')}</span></div>
+        ${meta ? `<div class="chmap-meta">${meta}</div>` : ''}
+        <div class="chmap-desc">${escapeHtml(c.descricao||'')}</div>
+      </div>`;
+    }).join('');
+    marker.bindPopup(
+      `<b>${escapeHtml(r.local)}</b>` +
+      `<div class="chmap-sub">Zona ${escapeHtml(r.zona)} · ${n} chamado${n===1?'':'s'}</div>` +
+      `<div class="chmap-list">${itens}</div>` +
+      `<button class="popup-detail-btn" data-i="${i}">Ver detalhes</button>`,
+      { maxWidth: 320, minWidth: 240 }
+    );
+    marker.addTo(leafletLayer);
+  });
+
+  const el = document.getElementById('leafletCount');
+  if(el){
+    if(chSnapshot === null){ el.textContent = 'Carregando chamados…'; }
+    else {
+      const semCoord = escolas.length - noMapa.length;
+      el.textContent = escolas.length + (escolas.length===1 ? ' escola' : ' escolas') + ' com chamados'
+        + (semCoord ? ' (' + semCoord + ' sem coordenadas, fora do mapa)' : '');
+    }
+  }
+}
+document.getElementById('mapChConcluidos').addEventListener('change', (e)=>{
+  chMostrarConcluidos = e.target.checked;
+  renderLeafletMap();
+});
 
 initLeafletMap();
 
@@ -2071,10 +2221,10 @@ function exportCSV(){
 }
 document.getElementById('exportBtn').onclick = exportCSV;
 
-// esconde o filtro geral AC/Predial pra empresas — não faz sentido pra quem já
-// só vê o que é dela, e evita confusão/uso indevido
+// pra empresas, o filtro geral AC/Predial não faz sentido (já só veem o que é
+// delas) — fica só a escolha entre o mapa normal e o modo Chamados
 if(MY_COMPANY){
-  document.getElementById('campoFilter').style.display = 'none';
+  document.getElementById('campoFilter').querySelectorAll('option[value="ac"], option[value="pred"]').forEach(o=> o.remove());
 }
 
 // =====================================================================
@@ -2307,6 +2457,17 @@ async function refreshChamados(silent){
   chSnapshot = snap;
   chamados = lista;
   renderChamados(silent);
+  // mapa no modo Chamados: redesenha junto, mas se tiver popup aberto espera
+  // fechar (mesma regra do refreshAllData, pra não fechar no meio da leitura)
+  if(state.campo === 'chamados'){
+    if(mapPopupOpen) pendingMapRefresh = true; else renderLeafletMap();
+  }
+}
+
+// filtros do card (status, empresa, clique no gráfico) valem pra lista e pro mapa
+function aplicarFiltroChamados(){
+  renderChamados(true);
+  if(state.campo === 'chamados') renderLeafletMap();
 }
 
 function chamadosFiltrados(){
@@ -2395,7 +2556,7 @@ const chartChamados = new Chart(document.getElementById('chartChamados'), {
       if(!els.length) return;
       const emp = chartChamados.data.labels[els[0].index];
       chFiltroEmp.value = (chFiltroEmp.value === emp) ? '' : emp;
-      renderChamados(true);
+      aplicarFiltroChamados();
     },
     onHover: (evt, els)=>{ evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
   }
@@ -2413,8 +2574,8 @@ function renderChartChamados(silent){
   document.getElementById('chChartEmpty').style.display = emps.length ? 'none' : 'flex';
 }
 
-chFiltroStatus.onchange = ()=> renderChamados(true);
-chFiltroEmp.onchange = ()=> renderChamados(true);
+chFiltroStatus.onchange = aplicarFiltroChamados;
+chFiltroEmp.onchange = aplicarFiltroChamados;
 
 // ---- Modal "Abrir chamado" ----
 function empresaPadrao(row, categoria){
