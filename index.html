@@ -202,6 +202,49 @@
   .session-bar .who b{ color:var(--ink); }
   .logout-btn{ padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:0.82rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .logout-btn:hover{ color:var(--ink); border-color:var(--accent); }
+  /* ---- Card "Concluídos por empresa" minimizável ---- */
+  .collapse-head{ width:100%; display:flex; justify-content:space-between; align-items:center; gap:12px; background:none; border:none; padding:0; margin:0; cursor:pointer; color:var(--ink); text-align:left; font:inherit; }
+  .collapse-head:focus-visible{ outline:2px solid var(--accent); outline-offset:4px; border-radius:4px; }
+  .collapse-sum{ color:var(--muted); font-size:0.85rem; font-family:-apple-system,"Segoe UI",sans-serif; }
+  .collapse-ind{ display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:0.82rem; font-family:-apple-system,"Segoe UI",sans-serif; white-space:nowrap; }
+  .collapse-ind svg{ transition:transform .15s; }
+  .emp-progress-card.collapsed .collapse-body{ display:none; }
+  .emp-progress-card:not(.collapsed) .collapse-ind svg{ transform:rotate(180deg); }
+  .emp-progress-card .collapse-body{ margin-top:14px; }
+  /* ---- Chamados ---- */
+  .ch-grid{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:14px; margin-top:14px; }
+  @media (max-width:900px){ .ch-grid{ grid-template-columns:minmax(0,1fr); } }
+  .ch-card{ background:var(--paper-2); border:1px solid var(--line); border-radius:6px; padding:18px 20px; display:flex; flex-direction:column; min-width:0; }
+  .ch-card h3{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:1.05rem; font-weight:650; margin:0; }
+  .ch-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .ch-counts{ display:flex; gap:6px; flex-wrap:wrap; }
+  .ch-tools{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .ch-tools select{ padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:0.84rem; font-family:-apple-system,"Segoe UI",sans-serif; }
+  .ch-btn-out{ padding:6px 12px; border-radius:6px; border:1px solid var(--accent); background:transparent; color:var(--accent); font-size:0.84rem; font-weight:600; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; margin-left:auto; display:inline-flex; align-items:center; gap:6px; }
+  .ch-btn-out:hover{ background:var(--accent); color:#fff; }
+  .ch-list{ max-height:420px; overflow:auto; border-top:1px solid var(--line); }
+  .ch-item{ display:flex; gap:12px; justify-content:space-between; padding:11px 2px; border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; }
+  .ch-item:last-child{ border-bottom:none; }
+  .ch-item-main{ min-width:0; flex:1; }
+  .ch-item-escola{ font-weight:600; font-size:0.9rem; }
+  .ch-item-num{ color:var(--muted); font-weight:400; margin-right:6px; }
+  .ch-item-meta{ color:var(--muted); font-size:0.8rem; margin-top:2px; }
+  .ch-item-desc{ font-size:0.86rem; margin-top:5px; line-height:1.4; white-space:pre-wrap; word-break:break-word; }
+  .ch-item-side{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .ch-item-actions{ display:flex; gap:2px; }
+  .ch-status{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.76rem; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .ch-status.open{ background:rgba(169,117,44,0.18); color:var(--amber); }
+  .ch-status.prog{ background:rgba(122,59,46,0.14); color:var(--accent); }
+  .ch-status.done{ background:rgba(47,93,80,0.15); color:var(--accent-2); }
+  .ch-status-select{ font-size:0.78rem; font-weight:600; padding:3px 6px; border-radius:20px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:-apple-system,"Segoe UI",sans-serif; cursor:pointer; }
+  .ch-empty{ color:var(--muted); font-size:0.88rem; padding:22px 4px; font-family:-apple-system,"Segoe UI",sans-serif; line-height:1.5; }
+  .ch-canvas{ position:relative; flex:1; min-height:260px; }
+  .ch-canvas-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:0.88rem; font-family:-apple-system,"Segoe UI",sans-serif; text-align:center; padding:20px; }
+  .rowaction-btn.ch-open-btn{ color:var(--accent); }
+  .rowaction-btn svg{ display:block; }
+  .ch-school-box{ background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:14px; font-family:-apple-system,"Segoe UI",sans-serif; }
+  .ch-school-box .nm{ font-weight:650; font-size:0.95rem; }
+  .ch-school-box .mt{ color:var(--muted); font-size:0.85rem; margin-top:2px; }
 </style>
 <style>
 /* Leaflet CSS embutido (offline) */
@@ -909,10 +952,36 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="kpis" id="kpiGrid"></div>
   <div class="kb-grid" id="kbGrid"></div>
   <div class="kb-note" id="kbNote"></div>
-  <div class="emp-progress-card" id="empProgressCard">
-    <h3>Concluídos por empresa</h3>
-    <p class="emp-progress-sub">Clique numa empresa pra filtrar tabela e mapa</p>
-    <div id="empProgressList"></div>
+  <div class="emp-progress-card collapsed" id="empProgressCard">
+    <button type="button" class="collapse-head" id="empProgressToggle" aria-expanded="false" aria-controls="empProgressBody">
+      <span><h3>Concluídos por empresa</h3><span class="collapse-sum" id="empProgressSummary"></span></span>
+      <span class="collapse-ind"><span id="empProgressToggleLbl">Mostrar</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg></span>
+    </button>
+    <div class="collapse-body" id="empProgressBody">
+      <p class="emp-progress-sub">Clique numa empresa pra filtrar tabela e mapa</p>
+      <div id="empProgressList"></div>
+    </div>
+  </div>
+  <div class="ch-grid" id="chamadosSection">
+    <div class="ch-card">
+      <div class="ch-head"><h3>Chamados</h3><div class="ch-counts" id="chCounts"></div></div>
+      <div class="ch-tools">
+        <select id="chFiltroStatus" aria-label="Filtrar por status">
+          <option value="">Todos os status</option>
+          <option value="Aberto">Abertos</option>
+          <option value="Em andamento">Em andamento</option>
+          <option value="Concluído">Concluídos</option>
+        </select>
+        <select id="chFiltroEmp" aria-label="Filtrar por empresa"><option value="">Todas as empresas</option></select>
+        <button type="button" class="ch-btn-out" id="chExportAll"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"/><path d="M7 11l5 5l5 -5"/><path d="M12 4l0 12"/></svg>Exportar cards</button>
+      </div>
+      <div class="ch-list" id="chList"><div class="ch-empty">Carregando chamados…</div></div>
+    </div>
+    <div class="ch-card">
+      <div class="ch-head"><h3>Chamados por empresa</h3></div>
+      <p class="emp-progress-sub" style="margin-bottom:8px">Clique numa barra pra filtrar a lista</p>
+      <div class="ch-canvas"><canvas id="chartChamados"></canvas><div class="ch-canvas-empty" id="chChartEmpty" style="display:none">Nenhum chamado registrado ainda.</div></div>
+    </div>
   </div>
 </section>
 
@@ -1088,6 +1157,26 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     <div class="login-error" id="editFormError" style="display:none"></div>
     <button class="login-btn" id="editFormSubmit" style="margin-top:8px;">Salvar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="chamadoModalOverlay">
+  <div class="modal" style="max-width:560px;" role="dialog" aria-modal="true" aria-labelledby="chModalTitle">
+    <button class="modal-close" id="chModalClose" aria-label="Fechar">✕</button>
+    <h3 id="chModalTitle">Abrir chamado</h3>
+    <div class="modal-meta">Descrição é obrigatória.</div>
+    <div class="ch-school-box"><div class="nm" id="chEscola"></div><div class="mt" id="chEscolaMeta"></div></div>
+    <div class="field-row">
+      <div class="field"><label for="chSecao">Seção</label><input type="text" id="chSecao" inputmode="numeric" placeholder="ex: 0412"></div>
+      <div class="field"><label for="chCategoria">Categoria</label><select id="chCategoria"><option>Ar-condicionado</option><option>Predial</option></select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="chEmpresa">Empresa</label><select id="chEmpresa"></select></div>
+      <div class="field"><label for="chStatus">Status</label><select id="chStatus"><option>Aberto</option><option>Em andamento</option><option>Concluído</option></select></div>
+    </div>
+    <div class="field"><label for="chDescricao">Descrição do chamado *</label><textarea id="chDescricao" rows="4" placeholder="ex: Ar da sala 3 não gela; a seção funciona nessa sala."></textarea></div>
+    <div class="login-error" id="chFormError" style="display:none"></div>
+    <button class="login-btn" id="chFormSubmit" style="margin-top:8px;">Registrar chamado</button>
   </div>
 </div>
 
@@ -1497,6 +1586,7 @@ function renderEmpProgressCard(){
   document.getElementById('empProgressList').querySelectorAll('.emp-row').forEach(row=>{
     row.onclick = ()=> setFilter({ zone:'TODAS', emp: row.dataset.emp, campo:'both', demanda:null, ac:null, pred:null, crit:null });
   });
+  if(typeof atualizarResumoEmp==='function') atualizarResumoEmp();
 }
 renderEmpProgressCard();
 
@@ -1763,7 +1853,7 @@ function renderDetail(skipMap){
       <td data-label="Empresa (predial)">${predIsMine ? (r.pred_emp || '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
       <td data-label="Predial">${predIsMine ? `<div class="statuscell" title="${r.pred_status.replace(/"/g,'&quot;')}">${r.pred_status}</div>` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
       <td data-label="Criticidade elétrica">${critTag(r.crit_elet)}</td>
-      ${IS_ADMIN ? `<td data-label="Ações"><button class="rowaction-btn edit-btn" data-i="${i}" title="Editar">✎</button><button class="rowaction-btn del-btn" data-i="${i}" title="Excluir">🗑</button></td>` : ''}
+      ${IS_ADMIN ? `<td data-label="Ações"><button class="rowaction-btn edit-btn" data-i="${i}" title="Editar">✎</button><button class="rowaction-btn ch-open-btn" data-i="${i}" title="Abrir chamado" aria-label="Abrir chamado"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5"/><path d="M16 19h6"/><path d="M19 16v6"/></svg></button><button class="rowaction-btn del-btn" data-i="${i}" title="Excluir">🗑</button></td>` : ''}
     </tr>`;
   }).join('');
   document.getElementById('detailTable').querySelectorAll('button.escolabtn').forEach(b=>{
@@ -1772,6 +1862,9 @@ function renderDetail(skipMap){
   if(IS_ADMIN){
     document.getElementById('detailTable').querySelectorAll('.edit-btn').forEach(b=>{
       b.onclick = ()=> openEditModal(lastRenderedRows[Number(b.dataset.i)]);
+    });
+    document.getElementById('detailTable').querySelectorAll('.ch-open-btn').forEach(b=>{
+      b.onclick = ()=> openChamadoModal(lastRenderedRows[Number(b.dataset.i)]);
     });
     document.getElementById('detailTable').querySelectorAll('.del-btn').forEach(b=>{
       b.onclick = ()=> deleteSchool(lastRenderedRows[Number(b.dataset.i)]);
@@ -2197,7 +2290,326 @@ async function refreshAllData(silent){
   renderBtns(); renderChips(); renderDetail(mapPopupOpen);
 }
 
-setInterval(()=>refreshAllData(true), 5 * 60 * 1000);
+
+// =====================================================================
+// CHAMADOS — registro de chamados por escola (aba "Chamados" da planilha).
+// Só o ADM Geral abre chamados e muda status; empresas veem os delas;
+// consulta e ADM veem todos (o filtro por empresa é feito no Apps Script).
+// =====================================================================
+const CH_EMPRESAS = ['PLATINA','CB BOTELHO','SEMED','ECOLIFE','MCA','MMGR','ENS','PAIVA','SELF'];
+const CH_STATUS = ['Aberto','Em andamento','Concluído'];
+let chamados = [];
+let chSnapshot = null;
+let chamadoRow = null;
+const chStatusCls = s => s==='Concluído' ? 'done' : (s==='Em andamento' ? 'prog' : 'open');
+const chModalOverlay = document.getElementById('chamadoModalOverlay');
+const chFiltroStatus = document.getElementById('chFiltroStatus');
+const chFiltroEmp = document.getElementById('chFiltroEmp');
+
+document.getElementById('chEmpresa').innerHTML = CH_EMPRESAS.map(e=>`<option>${e}</option>`).join('');
+
+async function refreshChamados(silent){
+  let lista;
+  try{
+    const r = await postToScript('chamados-listar', {});
+    lista = r.chamados || [];
+  } catch(e){
+    if(!silent && !chamados.length){
+      document.getElementById('chList').innerHTML = `<div class="ch-empty">Não deu pra carregar os chamados (${escapeHtml(e.message)}). Confira se o código do Apps Script foi atualizado.</div>`;
+    }
+    return;
+  }
+  const snap = JSON.stringify(lista);
+  if(silent && snap === chSnapshot) return;
+  chSnapshot = snap;
+  chamados = lista;
+  renderChamados(silent);
+}
+
+function chamadosFiltrados(){
+  return chamados
+    .filter(c => !chFiltroStatus.value || c.status === chFiltroStatus.value)
+    .filter(c => !chFiltroEmp.value || c.empresa === chFiltroEmp.value)
+    .sort((a,b)=> Number(b.id) - Number(a.id));
+}
+
+function renderChamados(silent){
+  // contadores (sobre todos os chamados visíveis pra esse usuário)
+  const cont = { 'Aberto':0, 'Em andamento':0, 'Concluído':0 };
+  chamados.forEach(c=>{ if(cont[c.status]!==undefined) cont[c.status]++; });
+  document.getElementById('chCounts').innerHTML = CH_STATUS
+    .map(s=>`<span class="ch-status ${chStatusCls(s)}">${cont[s]} ${s==='Aberto'?'abertos':(s==='Concluído'?'concluídos':'em andamento')}</span>`).join('');
+
+  // opções do filtro de empresa = empresas que têm chamado
+  const emps = Array.from(new Set(chamados.map(c=>c.empresa).filter(Boolean))).sort();
+  const atual = chFiltroEmp.value;
+  chFiltroEmp.innerHTML = '<option value="">Todas as empresas</option>' + emps.map(e=>`<option ${e===atual?'selected':''}>${escapeHtml(e)}</option>`).join('');
+
+  const lista = chamadosFiltrados();
+  const box = document.getElementById('chList');
+  if(!chamados.length){
+    box.innerHTML = `<div class="ch-empty">Nenhum chamado registrado.${IS_ADMIN ? ' Pra abrir um, use o ícone de chamado na coluna Ações da tabela.' : ''}</div>`;
+  } else if(!lista.length){
+    box.innerHTML = '<div class="ch-empty">Nenhum chamado com esse filtro.</div>';
+  } else {
+    const dlIco = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"/><path d="M7 11l5 5l5 -5"/><path d="M12 4l0 12"/></svg>';
+    box.innerHTML = lista.map(c=>`
+      <div class="ch-item">
+        <div class="ch-item-main">
+          <div class="ch-item-escola"><span class="ch-item-num">#${escapeHtml(c.id)}</span>${escapeHtml(c.escola)}</div>
+          <div class="ch-item-meta">Zona ${escapeHtml(c.zona)}${c.secao ? ', seção ' + escapeHtml(c.secao) : ''} · ${escapeHtml(c.categoria)} · ${escapeHtml(c.empresa)} · ${escapeHtml((c.data||'').split(' ')[0])}</div>
+          <div class="ch-item-desc">${escapeHtml(c.descricao)}</div>
+        </div>
+        <div class="ch-item-side">
+          ${IS_ADMIN
+            ? `<select class="ch-status-select" data-id="${escapeHtml(c.id)}" aria-label="Status do chamado ${escapeHtml(c.id)}">${CH_STATUS.map(s=>`<option ${s===c.status?'selected':''}>${s}</option>`).join('')}</select>`
+            : `<span class="ch-status ${chStatusCls(c.status)}">${escapeHtml(c.status)}</span>`}
+          <div class="ch-item-actions">
+            <button class="rowaction-btn ch-dl-btn" data-id="${escapeHtml(c.id)}" title="Baixar card deste chamado" aria-label="Baixar card do chamado ${escapeHtml(c.id)}">${dlIco}</button>
+            ${IS_ADMIN ? `<button class="rowaction-btn del-btn ch-del-btn" data-id="${escapeHtml(c.id)}" title="Excluir chamado" aria-label="Excluir chamado ${escapeHtml(c.id)}">🗑</button>` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+    box.querySelectorAll('.ch-dl-btn').forEach(b=>{
+      b.onclick = ()=> exportarCards(chamados.filter(c=>String(c.id)===b.dataset.id));
+    });
+    box.querySelectorAll('.ch-status-select').forEach(sel=>{
+      sel.onchange = async ()=>{
+        sel.disabled = true;
+        try{ await postToScript('chamado-status', { id: sel.dataset.id, status: sel.value }); await refreshChamados(); }
+        catch(e){ alert('Não deu pra mudar o status: ' + e.message); sel.disabled = false; }
+      };
+    });
+    box.querySelectorAll('.ch-del-btn').forEach(b=>{
+      b.onclick = async ()=>{
+        if(!confirm('Excluir o chamado #' + b.dataset.id + '? Isso não pode ser desfeito.')) return;
+        try{ await postToScript('chamado-excluir', { id: b.dataset.id }); await refreshChamados(); }
+        catch(e){ alert('Não deu pra excluir: ' + e.message); }
+      };
+    });
+  }
+  renderChartChamados(silent);
+}
+
+// ---- Gráfico: chamados por empresa, empilhado por status ----
+const chartChamados = new Chart(document.getElementById('chartChamados'), {
+  type: 'bar',
+  data: { labels: [], datasets: CH_STATUS.map(s=>({
+    label: s,
+    data: [],
+    backgroundColor: s==='Concluído' ? cssVar('--accent-2','#2f5d50') : (s==='Em andamento' ? cssVar('--accent','#7a3b2e') : cssVar('--amber','#a9752c')),
+    borderRadius: 3,
+    maxBarThickness: 26
+  })) },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    scales: {
+      x: { stacked: true, beginAtZero: true, ticks: { precision: 0, color: cssVar('--muted','#6b6459') }, grid: { color: cssVar('--line','#d8d2c2') } },
+      y: { stacked: true, ticks: { color: cssVar('--ink','#1c2622') }, grid: { display: false } }
+    },
+    plugins: { legend: { position: 'bottom', labels: { color: cssVar('--ink','#1c2622'), boxWidth: 12 } } },
+    onClick: (evt, els)=>{
+      if(!els.length) return;
+      const emp = chartChamados.data.labels[els[0].index];
+      chFiltroEmp.value = (chFiltroEmp.value === emp) ? '' : emp;
+      renderChamados(true);
+    },
+    onHover: (evt, els)=>{ evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+  }
+});
+
+function renderChartChamados(silent){
+  const emps = Array.from(new Set(chamados.map(c=>c.empresa).filter(Boolean)));
+  const total = e => chamados.filter(c=>c.empresa===e).length;
+  emps.sort((a,b)=> total(b)-total(a));
+  chartChamados.data.labels = emps;
+  chartChamados.data.datasets.forEach(ds=>{
+    ds.data = emps.map(e=> chamados.filter(c=>c.empresa===e && c.status===ds.label).length);
+  });
+  chartChamados.update(silent ? 'none' : undefined);
+  document.getElementById('chChartEmpty').style.display = emps.length ? 'none' : 'flex';
+}
+
+chFiltroStatus.onchange = ()=> renderChamados(true);
+chFiltroEmp.onchange = ()=> renderChamados(true);
+
+// ---- Modal "Abrir chamado" ----
+function empresaPadrao(row, categoria){
+  const e = String((categoria==='Predial' ? row.pred_emp : row.ac_emp) || '').toUpperCase();
+  return CH_EMPRESAS.includes(e) ? e : CH_EMPRESAS[0];
+}
+function openChamadoModal(row){
+  chamadoRow = row;
+  document.getElementById('chEscola').textContent = row.local || '';
+  document.getElementById('chEscolaMeta').textContent = 'Zona ' + (row.zona||'—') + (row.secoes!=null && row.secoes!=='' ? ' · ' + row.secoes + ' seções eleitorais' : '');
+  const pendAC = row.ac_status && !isDone(row.ac_status) && acHasDemand(row);
+  const cat = pendAC ? 'Ar-condicionado' : 'Predial';
+  document.getElementById('chCategoria').value = cat;
+  document.getElementById('chEmpresa').value = empresaPadrao(row, cat);
+  document.getElementById('chStatus').value = 'Aberto';
+  document.getElementById('chSecao').value = '';
+  document.getElementById('chDescricao').value = '';
+  document.getElementById('chFormError').style.display = 'none';
+  const btn = document.getElementById('chFormSubmit');
+  btn.disabled = false; btn.textContent = 'Registrar chamado';
+  chModalOverlay.classList.add('open');
+  setTimeout(()=> document.getElementById('chSecao').focus(), 50);
+}
+function closeChamadoModal(){ chModalOverlay.classList.remove('open'); }
+document.getElementById('chCategoria').onchange = (e)=>{
+  if(chamadoRow) document.getElementById('chEmpresa').value = empresaPadrao(chamadoRow, e.target.value);
+};
+document.getElementById('chModalClose').onclick = closeChamadoModal;
+chModalOverlay.addEventListener('click', (e)=>{ if(e.target===chModalOverlay) closeChamadoModal(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeChamadoModal(); });
+document.getElementById('chDescricao').addEventListener('input', ()=>{ document.getElementById('chFormError').style.display='none'; });
+
+document.getElementById('chFormSubmit').onclick = async ()=>{
+  const err = document.getElementById('chFormError');
+  const descricao = document.getElementById('chDescricao').value.trim();
+  if(!descricao){
+    err.textContent = 'Descreva o chamado antes de registrar.';
+    err.style.display = 'block';
+    document.getElementById('chDescricao').focus();
+    return;
+  }
+  const btn = document.getElementById('chFormSubmit');
+  btn.disabled = true; btn.textContent = 'Registrando...';
+  try{
+    await postToScript('chamado-salvar', {
+      zona: chamadoRow.zona || '',
+      escola: chamadoRow.local || '',
+      secoes: chamadoRow.secoes!=null ? String(chamadoRow.secoes) : '',
+      secao: document.getElementById('chSecao').value.trim(),
+      categoria: document.getElementById('chCategoria').value,
+      empresa: document.getElementById('chEmpresa').value,
+      status: document.getElementById('chStatus').value,
+      descricao
+    });
+    closeChamadoModal();
+    await refreshChamados();
+  } catch(e){
+    err.textContent = 'Não deu pra registrar: ' + e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Registrar chamado';
+  }
+};
+
+// ---- Exportar cards em PNG (desenhados num canvas, fundo claro sempre) ----
+function quebrarLinhas(ctx, texto, maxW){
+  const linhas = [];
+  String(texto||'').split('\n').forEach(par=>{
+    let atual = '';
+    par.split(/\s+/).forEach(pal=>{
+      const teste = atual ? atual + ' ' + pal : pal;
+      if(ctx.measureText(teste).width > maxW && atual){ linhas.push(atual); atual = pal; }
+      else atual = teste;
+    });
+    linhas.push(atual);
+  });
+  return linhas;
+}
+function desenharCard(ctx, c, x, y, w, desenhar){
+  const F = '-apple-system, "Segoe UI", Roboto, sans-serif';
+  const pad = 28, inner = w - pad*2;
+  const corStatus = c.status==='Concluído' ? '#2f5d50' : (c.status==='Em andamento' ? '#7a3b2e' : '#a9752c');
+  let cy = y + pad + 6;
+  ctx.font = `14px ${F}`;
+  const lTopo = 20;
+  ctx.font = `600 22px ${F}`;
+  const lEscola = quebrarLinhas(ctx, c.escola, inner);
+  ctx.font = `16px ${F}`;
+  const lDesc = quebrarLinhas(ctx, c.descricao, inner);
+  const h = pad + 6 + lTopo + 10 + lEscola.length*28 + 26 + 18 + lDesc.length*24 + 18 + 30 + pad;
+  if(!desenhar) return h;
+
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#d8d2c2'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x+0.5, y+0.5, w-1, h-1, 10); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = corStatus;
+  ctx.beginPath(); ctx.roundRect(x, y, w, 6, [10,10,0,0]); ctx.fill();
+
+  ctx.textBaseline = 'top';
+  ctx.font = `14px ${F}`; ctx.fillStyle = '#6b6459';
+  ctx.textAlign = 'left'; ctx.fillText(`Chamado #${c.id} · ${(c.data||'').split(' ')[0]}`, x+pad, cy);
+  ctx.textAlign = 'right'; ctx.fillText(`Zona ${c.zona}`, x+w-pad, cy);
+  ctx.textAlign = 'left';
+  cy += lTopo + 10;
+  ctx.font = `600 22px ${F}`; ctx.fillStyle = '#1c2622';
+  lEscola.forEach(l=>{ ctx.fillText(l, x+pad, cy); cy += 28; });
+  ctx.font = `15px ${F}`; ctx.fillStyle = '#6b6459';
+  ctx.fillText(`${c.secao ? 'Seção ' + c.secao + ' · ' : ''}${c.categoria}`, x+pad, cy);
+  cy += 26;
+  ctx.strokeStyle = '#e6e1d4'; ctx.beginPath(); ctx.moveTo(x+pad, cy); ctx.lineTo(x+w-pad, cy); ctx.stroke();
+  cy += 18;
+  ctx.font = `16px ${F}`; ctx.fillStyle = '#1c2622';
+  lDesc.forEach(l=>{ ctx.fillText(l, x+pad, cy); cy += 24; });
+  cy += 6;
+  ctx.beginPath(); ctx.moveTo(x+pad, cy); ctx.lineTo(x+w-pad, cy); ctx.stroke();
+  cy += 12;
+  ctx.font = `15px ${F}`; ctx.fillStyle = '#6b6459'; ctx.fillText('Empresa: ', x+pad, cy+6);
+  const wEmp = ctx.measureText('Empresa: ').width;
+  ctx.font = `600 15px ${F}`; ctx.fillStyle = '#1c2622'; ctx.fillText(c.empresa, x+pad+wEmp, cy+6);
+  ctx.font = `600 13px ${F}`;
+  const wPill = ctx.measureText(c.status).width + 24;
+  ctx.fillStyle = corStatus + '22';
+  ctx.beginPath(); ctx.roundRect(x+w-pad-wPill, cy, wPill, 28, 14); ctx.fill();
+  ctx.fillStyle = corStatus; ctx.textAlign = 'center'; ctx.fillText(c.status, x+w-pad-wPill/2, cy+7);
+  ctx.textAlign = 'left';
+  return h;
+}
+function exportarCards(lista){
+  if(!lista.length){ alert('Nenhum chamado pra exportar com o filtro atual.'); return; }
+  if(lista.length > 60){ alert('São ' + lista.length + ' chamados. Filtre por status ou empresa pra exportar no máximo 60 de uma vez.'); return; }
+  const W = 640, gap = 20, margem = 24, escala = 2;
+  const medida = document.createElement('canvas').getContext('2d');
+  const alturas = lista.map(c=> desenharCard(medida, c, 0, 0, W, false));
+  const H = margem*2 + alturas.reduce((a,b)=>a+b,0) + gap*(lista.length-1);
+  const cv = document.createElement('canvas');
+  cv.width = (W + margem*2) * escala; cv.height = H * escala;
+  const ctx = cv.getContext('2d');
+  ctx.scale(escala, escala);
+  ctx.fillStyle = '#f6f4ee'; ctx.fillRect(0, 0, W + margem*2, H);
+  let y = margem;
+  lista.forEach((c,i)=>{ desenharCard(ctx, c, margem, y, W, true); y += alturas[i] + gap; });
+  cv.toBlob(blob=>{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = lista.length===1 ? `chamado_${lista[0].id}.png` : `chamados_${new Date().toISOString().slice(0,10)}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 4000);
+  }, 'image/png');
+}
+document.getElementById('chExportAll').onclick = ()=> exportarCards(chamadosFiltrados());
+
+// ---- Card "Concluídos por empresa": minimizar/expandir ----
+(function(){
+  const card = document.getElementById('empProgressCard');
+  const btn = document.getElementById('empProgressToggle');
+  const lbl = document.getElementById('empProgressToggleLbl');
+  function aplicar(aberto){
+    card.classList.toggle('collapsed', !aberto);
+    btn.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    lbl.textContent = aberto ? 'Ocultar' : 'Mostrar';
+  }
+  aplicar(safeGet('tre_emp_aberto') === '1');
+  btn.onclick = ()=>{
+    const aberto = card.classList.contains('collapsed');
+    aplicar(aberto);
+    safeSet('tre_emp_aberto', aberto ? '1' : '0');
+  };
+})();
+function atualizarResumoEmp(){
+  const tot = empProgress.reduce((a,e)=>a+e.total,0);
+  const done = empProgress.reduce((a,e)=>a+e.done,0);
+  document.getElementById('empProgressSummary').textContent =
+    `${empProgress.length} empresas, ${done} de ${tot} demandas concluídas (${tot ? Math.round(done/tot*100) : 0}%)`;
+}
+atualizarResumoEmp();
+
+refreshChamados();
+
+setInterval(()=>{ refreshAllData(true); refreshChamados(true); }, 5 * 60 * 1000);
 
 renderBtns(); renderChips(); renderDetail();
 
