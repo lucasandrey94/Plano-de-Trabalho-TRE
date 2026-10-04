@@ -39,7 +39,7 @@ Responda sempre em português.
 `id, data, zona, escola, secoes, secao, categoria, empresa, status, descricao, criado_por, atualizado_em`
 
 - Categorias: `Ar-condicionado`, `Predial`
-- Empresas: `PLATINA, CB BOTELHO, SEMED, ECOLIFE, MCA, MMGR, ENS, PAIVA, SELF, SUPLEX` — a lista `CH_EMPRESAS` existe igual no `index.html` e no `Code.gs`; mudar sempre nos dois (o Apps Script recusa empresa fora da lista).
+- Empresas: `PLATINA, CB BOTELHO, SEMED, ECOLIFE, MCA, MMGR, ENS, PAIVA, SELF, SUPLEX, AC CONSTRUÇÃO` (o nome tem que ser igual ao `company` da conta de login, senão a empresa não vê os chamados dela) — a lista `CH_EMPRESAS` existe igual no `index.html` e no `Code.gs`; mudar sempre nos dois (o Apps Script recusa empresa fora da lista).
 - Status: `Aberto`, `Em andamento`, `Concluído`
 - Quem muda o status: o ADM em qualquer chamado. A empresa (inclusive `semed`, empresa SEMED) só nos chamados dela, só para `Em andamento` ou `Concluído`, e não reabre chamado concluído. A regra existe no `index.html` (o que aparece) e no `Code.gs` (o que vale).
 - Todas as colunas com formato texto, para não perder zero à esquerda da seção (ex: 0412).
