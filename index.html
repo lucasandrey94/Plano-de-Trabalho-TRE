@@ -1133,7 +1133,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="hint" id="leafletCount"></div>
       </div>
       <div class="map-controls-row">
-        <label class="map-ch-toggle" id="mapChToggle" style="display:none"><input type="checkbox" id="mapChConcluidos">Mostrar concluídos</label>
+        <label class="map-ch-toggle" id="mapChToggle" style="display:none"><input type="checkbox" id="mapChConcluidos" checked>Mostrar concluídos</label>
         <div class="map-legend" id="mapLegend"></div>
       </div>
     </div>
@@ -1933,13 +1933,14 @@ function renderLeafletMap(){
 
 // ---- Modo "Chamados": mapa e tabela mostram só as escolas que têm chamado ----
 // Obedece aos filtros da barra da tabela e aos do card de chamados (status,
-// empresa, clique no gráfico). Concluídos começam escondidos.
+// empresa, clique no gráfico). Concluídos aparecem por padrão ("Mostrar concluídos"
+// já vem marcado; desmarcando, somem do mapa e da tabela).
 // Cores fixas porque o mapa de fundo é sempre claro (mesmo esquema do PROGRESS_COLOR).
 const CH_MAP_COR = { 'Aberto':'#a9752c', 'Em andamento':'#7a3b2e', 'Concluído':'#2f5d50' };
 const CH_MAP_LEGENDA = { 'Aberto':'Aberto', 'Em andamento':'Em andamento', 'Concluído':'Todos concluídos' };
 const CH_URGENCIA = { 'Aberto':2, 'Em andamento':1, 'Concluído':0 };
 const chUrgencia = c => CH_URGENCIA[c.status] !== undefined ? CH_URGENCIA[c.status] : 2;
-let chMostrarConcluidos = false;
+let chMostrarConcluidos = true;
 let chNaoEncontradosLog = null; // ids já listados no console, pra não repetir a cada clique
 
 function normChave(s){
