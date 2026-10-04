@@ -2629,6 +2629,54 @@ let chamadoEditId = null;  // id do chamado sendo editado (null = chamado novo)
 const chStatusCls = s => s==='Concluído' ? 'done' : (s==='Em andamento' ? 'prog' : 'open');
 // data + hora de abertura ("03/10/2026 18:13"); se a planilha só tiver a data, mostra só ela
 const chDataHora = c => { const [d, h] = String(c.data||'').trim().split(/\s+/); return h ? d + ' ' + h.slice(0, 5) : (d || ''); };
+
+// ---- Texto do chamado no modelo "Resumo de ocorrência" do WhatsApp ----
+// (*negrito* e _itálico_ são a formatação do próprio WhatsApp)
+function textoWhatsApp(c){
+  const [data, hora] = chDataHora(c).split(' ');
+  const zona = (String(c.zona||'').match(/\d+/) || [String(c.zona||'')])[0]; // "37ª" -> "37"
+  const situacao = c.status === 'Concluído' ? 'manutenção concluída'
+    : (c.status === 'Em andamento' ? 'manutenção em andamento' : 'aguardando atendimento');
+  const relato = [String(c.descricao||'').trim().replace(/[\s.;,]+$/, ''), zona ? 'zona ' + zona : '', c.secao ? 'seção ' + c.secao : '', situacao]
+    .filter(Boolean).join(', ') + '.';
+  return [
+    '*OPERAÇÃO ELEIÇÕES 2026*', '',
+    '*RESUMO DE OCORRÊNCIA:*', '',
+    '🏪 *_Órgão_*: SEMED', '',
+    '📆 *_Data_*: ' + (data || ''), '',
+    '⏰ *_Hora_*: ' + (hora || ''), '',
+    '💠 *_Relato da Ocorrência_*:', '',
+    '• ' + String(c.escola||'').trim(),
+    '-' + relato
+  ].join('\n');
+}
+// No celular abre o "Compartilhar" (aparece o WhatsApp); no computador copia o
+// texto pra colar na conversa. O botão mostra "✓" por 2 s pra confirmar.
+async function enviarTextoWhatsApp(texto, btn){
+  const confirmar = (ok, msg)=>{
+    const antes = btn.innerHTML;
+    btn.innerHTML = ok ? '✓' : '✕';
+    btn.title = msg;
+    setTimeout(()=>{ btn.innerHTML = antes; btn.title = 'Texto para WhatsApp (copia o resumo da ocorrência)'; }, 2000);
+  };
+  if(navigator.share && matchMedia('(pointer: coarse)').matches){
+    try{ await navigator.share({ text: texto }); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; } // cancelou: tudo bem; outro erro: tenta copiar
+  }
+  try{
+    await navigator.clipboard.writeText(texto);
+    confirmar(true, 'Texto copiado. É só colar no WhatsApp.');
+  } catch(e){
+    // navegador sem acesso à área de transferência: copia do jeito antigo
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try{ ok = document.execCommand('copy'); }catch(_){}
+    ta.remove();
+    if(ok) confirmar(true, 'Texto copiado. É só colar no WhatsApp.');
+    else { confirmar(false, 'Não deu pra copiar'); window.prompt('Copie o texto abaixo (Ctrl+C) e cole no WhatsApp:', texto); }
+  }
+}
 // quem muda o status: o ADM em qualquer chamado; a empresa só nos dela, só pra
 // "Em andamento" ou "Concluído", e sem reabrir concluído (mesma regra do Apps Script)
 const ehDaMinhaEmpresa = c => !!MY_COMPANY && String(c.empresa||'').trim().toUpperCase() === String(MY_COMPANY).toUpperCase();
@@ -2746,6 +2794,7 @@ function renderChamados(silent){
     box.innerHTML = '<div class="ch-empty">Nenhum chamado com esse filtro.</div>';
   } else {
     const dlIco = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"/><path d="M7 11l5 5l5 -5"/><path d="M12 4l0 12"/></svg>';
+    const zapIco = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/><path d="M9 10h6"/><path d="M9 13.5h4"/></svg>';
     box.innerHTML = lista.map(c=>`
       <div class="ch-item">
         <div class="ch-item-main">
@@ -2759,6 +2808,7 @@ function renderChamados(silent){
             : `<span class="ch-status ${chStatusCls(c.status)}">${escapeHtml(c.status)}</span>`}
           <div class="ch-item-actions">
             <button class="rowaction-btn ch-dl-btn" data-id="${escapeHtml(c.id)}" title="Baixar card deste chamado" aria-label="Baixar card do chamado ${escapeHtml(c.id)}">${dlIco}</button>
+            <button class="rowaction-btn ch-zap-btn" data-id="${escapeHtml(c.id)}" title="Texto para WhatsApp (copia o resumo da ocorrência)" aria-label="Texto para WhatsApp do chamado ${escapeHtml(c.id)}">${zapIco}</button>
             ${IS_ADMIN ? `<button class="rowaction-btn ch-edit-btn" data-id="${escapeHtml(c.id)}" title="Editar chamado" aria-label="Editar chamado ${escapeHtml(c.id)}">✎</button>` : ''}
             ${IS_ADMIN ? `<button class="rowaction-btn del-btn ch-del-btn" data-id="${escapeHtml(c.id)}" title="Excluir chamado" aria-label="Excluir chamado ${escapeHtml(c.id)}">🗑</button>` : ''}
           </div>
@@ -2767,6 +2817,12 @@ function renderChamados(silent){
     box.scrollTop = scrollAntes;
     box.querySelectorAll('.ch-dl-btn').forEach(b=>{
       b.onclick = ()=> exportarCards(chamados.filter(c=>String(c.id)===b.dataset.id));
+    });
+    box.querySelectorAll('.ch-zap-btn').forEach(b=>{
+      b.onclick = ()=>{
+        const c = chamados.find(x=> String(x.id)===b.dataset.id);
+        if(c) enviarTextoWhatsApp(textoWhatsApp(c), b);
+      };
     });
     box.querySelectorAll('.ch-edit-btn').forEach(b=>{
       b.onclick = ()=>{
