@@ -114,6 +114,12 @@
   .map-header h3{ margin:0 0 2px; font-size:1rem; font-family:-apple-system,"Segoe UI",sans-serif; font-weight:650; color:var(--ink); }
   .map-legend{ display:flex; gap:14px; font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.8rem; color:var(--muted); flex-wrap:wrap; }
   .map-controls-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  /* cabeçalho do mapa com a mesma altura nos dois modos: trocar Escolas/Chamados não
+     empurra o mapa (o contador fica numa linha só e corta com "…" se não couber) */
+  .map-header{ flex-wrap:nowrap; }
+  .map-titulo{ flex:1 1 auto; min-width:0; }
+  #leafletCount{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .map-controls-row{ flex:0 0 auto; }
   .map-mode-select{ padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:var(--paper-2); color:var(--ink); font-size:0.85rem; font-family:-apple-system,"Segoe UI",sans-serif; }
   .legend-item{ display:flex; align-items:center; gap:5px; }
   .legend-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; }
@@ -214,6 +220,10 @@
     .modal-grid{ grid-template-columns:1fr; }
     #leafletMap{ height:420px; }
     .map-header{ flex-direction:column; }
+    .map-titulo{ width:100%; }
+    /* 2 linhas de legenda reservadas nos dois modos (Escolas usa 2, Chamados 1) */
+    .map-legend, .map-controls-row{ row-gap:6px; }
+    .map-controls-row{ min-height:46px; align-content:flex-start; }
   }
 
   /* ---- Tela de login ---- */
@@ -227,28 +237,32 @@
   .login-error{ color:var(--danger); font-size:0.85rem; margin-top:10px; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn{ margin-top:20px; width:100%; padding:11px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-weight:650; font-size:0.95rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn:hover{ opacity:0.9; }
-  .session-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding:8px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; position:-webkit-sticky; position:sticky; top:0; z-index:50; }
-  /* barra fixa no topo: a rolagem até as seções desconta a altura real dela
-     (scroll-padding-top no html, calculado no JS, porque a barra pode quebrar em 2 linhas) */
+  .session-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding:8px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; position:fixed; top:0; left:0; right:0; z-index:50; }
+  /* barra FIXA no topo (position:fixed se comporta igual no navegador e no app
+     instalado). O JS reserva no topo da página o espaço da altura real dela e
+     desconta essa altura na rolagem até as seções, porque ela tem 2 ou mais linhas */
+  .session-bar .who{ order:1; }
+  .session-bar .logout-btn{ order:3; }
   /* "Visualizar: Escolas / Chamados" — atalho pro modo do mapa e da tabela */
-  .visao-box{ display:flex; align-items:center; gap:16px; margin:0; padding:1px 12px 5px; border:1px solid var(--line); border-radius:6px; }
+  .visao-box{ order:2; display:flex; align-items:center; gap:16px; margin:0; padding:1px 12px 5px; border:1px solid var(--line); border-radius:6px; }
   .visao-box legend{ padding:0 4px; font-size:0.72rem; color:var(--muted); }
   .visao-box label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--ink); font-weight:600; }
   .visao-box input{ margin:0; width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
   .visao-n{ font-size:0.72rem; font-weight:650; padding:1px 7px; border-radius:20px; background:rgba(169,117,44,0.18); color:var(--amber); }
-  /* busca de escola na barra fixa do topo */
-  .busca-topo{ position:relative; flex:1 1 200px; max-width:340px; min-width:0; }
+  /* busca de escola: linha própria, abaixo da linha do "Visualizar" */
+  .busca-topo{ order:4; position:relative; flex:1 1 100%; min-width:0; }
   .busca-topo svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
-  .busca-topo input{ width:100%; padding:7px 10px 7px 32px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:0.88rem; font-family:inherit; }
+  .busca-topo input{ width:100%; max-width:720px; padding:7px 10px 7px 32px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:0.88rem; font-family:inherit; }
   .busca-topo input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
   @media (max-width:760px){
-    /* celular, 2 linhas: busca + Sair; depois quem está conectado + Visualizar */
-    .busca-topo{ order:1; flex:1 1 calc(100% - 80px); max-width:none; }
-    .logout-btn{ order:2; }
-    .session-bar .who{ order:3; flex:1 1 90px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* celular: linha 1 = quem está conectado + Visualizar; linha 2 = busca + Sair */
+    .session-bar .who{ flex:1 1 90px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .who-pre{ display:none; }
-    .visao-box{ order:4; flex:0 0 auto; gap:10px; padding:2px 8px 4px; }
+    .visao-box{ flex:0 0 auto; gap:10px; padding:2px 8px 4px; }
     .visao-box legend{ display:none; }
+    .busca-topo{ order:3; flex:1 1 calc(100% - 80px); }
+    .session-bar .logout-btn{ order:4; }
+    .busca-topo input{ max-width:none; font-size:16px; } /* 16px: o iPhone não dá zoom ao tocar no campo */
   }
   .session-bar .who{ color:var(--muted); }
   .session-bar .who b{ color:var(--ink); }
@@ -1128,13 +1142,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
   <div class="map-card">
     <div class="map-header">
-      <div>
+      <div class="map-titulo">
         <h3>Mapa das escolas</h3>
         <div class="hint" id="leafletCount"></div>
       </div>
       <div class="map-controls-row">
-        <label class="map-ch-toggle" id="mapChToggle" style="display:none"><input type="checkbox" id="mapChConcluidos" checked>Mostrar concluídos</label>
         <div class="map-legend" id="mapLegend"></div>
+        <label class="map-ch-toggle" id="mapChToggle" style="display:none" title="Mostrar ou esconder os chamados concluídos"><input type="checkbox" id="mapChConcluidos" checked><span class="legend-dot chmap-dot" style="background:#2f5d50"></span>Concluídos</label>
       </div>
     </div>
     <div id="leafletMap"></div>
@@ -1507,14 +1521,16 @@ function clearFilter(key){
 }
 
 function clearAllFilters(){
+  // limpa os filtros, mas não tira do modo Chamados (é uma visão, não um filtro)
+  const campo = state.campo==='chamados' ? 'chamados' : 'both';
   document.getElementById('searchBox').value='';
   document.getElementById('demandaFilter').value='todas';
-  document.getElementById('campoFilter').value='both';
+  document.getElementById('campoFilter').value=campo;
   document.getElementById('ddzFilter').value='';
   document.getElementById('empFilterSelect').value='';
   document.getElementById('chFiltroStatus').value='';
   document.getElementById('chFiltroEmp').value='';
-  setFilter({ zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo:'both', ddz:null, search:'' });
+  setFilter({ zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo, ddz:null, search:'' });
 }
 
 // ---- Chart 1: escolas com demanda, por zona ----
@@ -1708,7 +1724,9 @@ function renderChips(){
   if(state.pred) chips.push({key:'pred', label:'Predial: '+(state.pred===DONE_MARKER?'concluído/finalizado':state.pred===PENDING_MARKER?'pendente':state.pred)});
   if(state.crit) chips.push({key:'crit', label:'Criticidade: '+state.crit});
   if(state.emp) chips.push({key:'emp', label:'Empresa: '+state.emp});
-  if(state.campo && state.campo!=='both') chips.push({key:'campo', label: state.campo==='chamados' ? 'Mapa: chamados' : (state.campo==='ac' ? 'Só Ar-condicionado' : 'Só Predial')});
+  // o modo Chamados não vira chip: ele já aparece no "Visualizar" do topo (e o chip
+  // surgindo acima do mapa empurrava a tela pra baixo ao trocar de modo)
+  if(state.campo==='ac' || state.campo==='pred') chips.push({key:'campo', label: state.campo==='ac' ? 'Só Ar-condicionado' : 'Só Predial'});
   if(state.ddz) chips.push({key:'ddz', label:'Distrito: '+state.ddz});
   if(state.campo==='chamados'){
     // no modo Chamados os filtros do card também valem pra tabela e mapa
@@ -1896,6 +1914,21 @@ function initLeafletMap(){
   });
 }
 
+// ---- Enquadramento automático: o mapa se ajusta às escolas que estão nele ----
+// Só reenquadra quando o modo ou algum filtro muda; a atualização automática
+// (mesmos filtros) não mexe no zoom de quem está olhando o mapa.
+let ultimoEnquadramento = null;
+function enquadrarMapa(pontos){
+  const val = id => (document.getElementById(id) || {}).value || '';
+  const chave = JSON.stringify([state.zone, state.search, state.demanda, state.ac, state.pred, state.crit, state.emp, state.campo, state.ddz,
+    val('chFiltroStatus'), val('chFiltroEmp'), chMostrarConcluidos]);
+  const validos = pontos.filter(p => isFinite(+p[0]) && isFinite(+p[1]));
+  if(chave === ultimoEnquadramento || !validos.length) return; // sem escolas: deixa o mapa onde está
+  const primeiraVez = ultimoEnquadramento === null;
+  ultimoEnquadramento = chave;
+  try{ leafletMap.fitBounds(L.latLngBounds(validos), { padding: [30, 30], maxZoom: 15, animate: !primeiraVez }); }catch(e){}
+}
+
 function renderLeafletMap(){
   if(!leafletLayer) return;
   if(state.campo === 'chamados'){ renderMapaChamados(); return; }
@@ -1928,7 +1961,8 @@ function renderLeafletMap(){
   });
   const totalComCoord = Object.values(zonas).reduce((a,l)=>a+l.filter(r=>r.lat&&r.lon).length,0);
   const el = document.getElementById('leafletCount');
-  if(el) el.textContent = rows.length + ' de ' + totalComCoord + ' escola(s) no mapa';
+  if(el){ el.textContent = rows.length + ' de ' + totalComCoord + ' escola(s) no mapa'; el.title = el.textContent; }
+  enquadrarMapa(rows.map(r=> [r.lat, r.lon]));
 }
 
 // ---- Modo "Chamados": mapa e tabela mostram só as escolas que têm chamado ----
@@ -2012,7 +2046,8 @@ function renderMapaChamados(){
   toggle.classList.toggle('disabled', !!filtroStatus);
   toggle.title = filtroStatus ? 'Filtro de status do card de chamados ativo: ' + filtroStatus : '';
 
-  const legenda = filtroStatus ? [filtroStatus] : ['Aberto','Em andamento'].concat(chMostrarConcluidos ? ['Concluído'] : []);
+  // sem filtro de status, os concluídos aparecem na própria caixa "● Concluídos"
+  const legenda = filtroStatus ? [filtroStatus] : ['Aberto','Em andamento'];
   document.getElementById('mapLegend').innerHTML = legenda.map(s=>
     `<span class="legend-item"><span class="legend-dot chmap-dot" style="background:${CH_MAP_COR[s]}"></span>${CH_MAP_LEGENDA[s]}</span>`
   ).join('');
@@ -2059,9 +2094,11 @@ function renderMapaChamados(){
     else {
       const semCoord = escolas.length - noMapa.length;
       el.textContent = escolas.length + (escolas.length===1 ? ' escola' : ' escolas') + ' com chamados'
-        + (semCoord ? ' (' + semCoord + ' sem coordenadas, fora do mapa)' : '');
+        + (semCoord ? ' (' + semCoord + ' sem coordenadas)' : '');
     }
+    el.title = el.textContent; // o texto corta com "…" em tela estreita; o completo fica no passar do mouse
   }
+  enquadrarMapa(noMapa.map(e=> [e.row.lat, e.row.lon]));
 }
 document.getElementById('mapChConcluidos').addEventListener('change', (e)=>{
   chMostrarConcluidos = e.target.checked;
@@ -2246,11 +2283,15 @@ modalOverlay.addEventListener('click', (e)=>{ if(e.target===modalOverlay) closeM
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeModal(); closeEditModal(); } });
 
 document.getElementById('searchBox').addEventListener('input', (e)=>{ state.search = e.target.value.trim().toLowerCase(); renderDetail(); });
-// a barra fixa pode ter 1 ou 2 linhas conforme a largura: a rolagem até as seções
-// (Enter da busca, "Visualizar", cliques nos gráficos) desconta a altura real dela
+// a barra é fixa e tem 2 ou mais linhas conforme a largura: reserva o espaço dela
+// no topo da página e a rolagem até as seções (Enter da busca, cliques nos
+// gráficos) desconta a altura real dela
 (function(){
   const barra = document.querySelector('.session-bar');
-  const ajustar = ()=>{ document.documentElement.style.scrollPaddingTop = (barra.offsetHeight + 10) + 'px'; };
+  const ajustar = ()=>{
+    document.getElementById('appRoot').style.paddingTop = barra.offsetHeight + 'px';
+    document.documentElement.style.scrollPaddingTop = (barra.offsetHeight + 10) + 'px';
+  };
   if(window.ResizeObserver) new ResizeObserver(ajustar).observe(barra);
   ajustar();
 })();
@@ -2272,15 +2313,13 @@ document.getElementById('campoFilter').addEventListener('change', (e)=>{
 });
 
 // "Visualizar: Escolas / Chamados" na barra do topo: atalho pro mesmo modo do
-// seletor acima, que já rola até a parte da página que interessa
+// seletor acima. Não rola a página: troca o modo e deixa a tela onde está.
 document.querySelectorAll('input[name="visao"]').forEach(radio=>{
   radio.addEventListener('change', ()=>{
     if(!radio.checked) return;
     state.campo = radio.value === 'chamados' ? 'chamados' : 'both';
     document.getElementById('campoFilter').value = state.campo;
     renderChips(); renderDetail();
-    const alvo = radio.value === 'chamados' ? 'chamadosSection' : 'detailTable';
-    document.getElementById(alvo).closest('section').scrollIntoView({behavior:'smooth', block:'start'});
   });
 });
 

@@ -9,7 +9,7 @@ Responda sempre em português.
 - `index.html` — o site inteiro num arquivo só (HTML + CSS + JS). Publicado no GitHub Pages:
   https://lucasandrey94.github.io/Plano-de-Trabalho-TRE/
   O nome do arquivo tem que ser exatamente `index.html` (minúsculo). `Index.html` vira outro arquivo e o site não atualiza.
-- PWA (instalável): `manifest.webmanifest`, `sw.js` e a pasta `icons/` (selo "DET · SSIL · SEMED · MANAUS / TRE 2026"). O `sw.js` **não tem cache de propósito** — só repassa a abertura da página para a rede, e existe apenas para o navegador oferecer "Instalar app". Nunca adicionar cache, para não prender versão antiga no celular. Todos os caminhos são relativos (`./`), porque o site fica em `/Plano-de-Trabalho-TRE/` e não na raiz do domínio.
+- PWA (instalável): `manifest.webmanifest`, `sw.js` e a pasta `icons/` (selo "DET · SSIL · SEMED · MANAUS / TRE 2026"). O `sw.js` **não tem cache de propósito** — só repassa a abertura da página para a rede (com `cache: 'no-cache'`, que confere com o servidor a cada abertura; o GitHub Pages deixaria o navegador reaproveitar a página por 10 min), e existe apenas para o navegador oferecer "Instalar app". Nunca adicionar cache, para não prender versão antiga no celular. Todos os caminhos são relativos (`./`), porque o site fica em `/Plano-de-Trabalho-TRE/` e não na raiz do domínio.
 - `apps-script/Code.gs` — backend em Google Apps Script (API + login). **Este arquivo contém as senhas de todos os usuários e NUNCA pode ser commitado** — o repositório é público. A pasta `apps-script/` está no `.gitignore`. Antes de qualquer commit, confira com `git status` que nada dessa pasta entrou.
 - Banco de dados: Google Sheets
   - ID: `180_gpk98fE8M0LEuGCbuvIZ8Ts-uz0xB7MQq9LFfMV8`
