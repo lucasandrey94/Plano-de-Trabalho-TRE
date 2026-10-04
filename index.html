@@ -228,15 +228,28 @@
   .login-btn{ margin-top:20px; width:100%; padding:11px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-weight:650; font-size:0.95rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn:hover{ opacity:0.9; }
   .session-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding:8px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; position:-webkit-sticky; position:sticky; top:0; z-index:50; }
-  /* barra fixa no topo: ao rolar até uma seção, ela não fica escondida atrás da barra */
-  section{ scroll-margin-top:72px; }
-  @media (max-width:760px){ section{ scroll-margin-top:100px; } } /* no celular a barra quebra em 2 linhas */
+  /* barra fixa no topo: a rolagem até as seções desconta a altura real dela
+     (scroll-padding-top no html, calculado no JS, porque a barra pode quebrar em 2 linhas) */
   /* "Visualizar: Escolas / Chamados" — atalho pro modo do mapa e da tabela */
   .visao-box{ display:flex; align-items:center; gap:16px; margin:0; padding:1px 12px 5px; border:1px solid var(--line); border-radius:6px; }
   .visao-box legend{ padding:0 4px; font-size:0.72rem; color:var(--muted); }
   .visao-box label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--ink); font-weight:600; }
   .visao-box input{ margin:0; width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
   .visao-n{ font-size:0.72rem; font-weight:650; padding:1px 7px; border-radius:20px; background:rgba(169,117,44,0.18); color:var(--amber); }
+  /* busca de escola na barra fixa do topo */
+  .busca-topo{ position:relative; flex:1 1 200px; max-width:340px; min-width:0; }
+  .busca-topo svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+  .busca-topo input{ width:100%; padding:7px 10px 7px 32px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:0.88rem; font-family:inherit; }
+  .busca-topo input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  @media (max-width:760px){
+    /* celular, 2 linhas: busca + Sair; depois quem está conectado + Visualizar */
+    .busca-topo{ order:1; flex:1 1 calc(100% - 80px); max-width:none; }
+    .logout-btn{ order:2; }
+    .session-bar .who{ order:3; flex:1 1 90px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .who-pre{ display:none; }
+    .visao-box{ order:4; flex:0 0 auto; gap:10px; padding:2px 8px 4px; }
+    .visao-box legend{ display:none; }
+  }
   .session-bar .who{ color:var(--muted); }
   .session-bar .who b{ color:var(--ink); }
   .logout-btn{ padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:0.82rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
@@ -993,7 +1006,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <div id="appRoot" style="display:none">
 <div class="session-bar">
-  <div class="who">Conectado como <b id="whoLabel"></b></div>
+  <div class="who"><span class="who-pre">Conectado como </span><b id="whoLabel"></b></div>
+  <div class="busca-topo">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M21 21l-6 -6"/></svg>
+    <input type="search" id="searchBox" placeholder="Buscar escola" aria-label="Buscar escola" autocomplete="off">
+  </div>
   <fieldset class="visao-box">
     <legend>Visualizar</legend>
     <label><input type="radio" name="visao" value="escolas" checked>Escolas</label>
@@ -1087,7 +1104,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <h2>Listagem completa <span class="n" id="listCount"></span></h2>
   <div class="zonaselect" id="zonaBtns"></div>
   <div class="toolbar">
-    <input type="text" id="searchBox" placeholder="Buscar escola...">
     <select id="demandaFilter">
       <option value="todas">Todas</option>
       <option value="com">Somente com demanda</option>
@@ -1766,7 +1782,12 @@ function getRowsEscola(){
   } else {
     rows = zonas[state.zone].map(r=>Object.assign({zona:state.zone}, r));
   }
-  if(state.search) rows = rows.filter(r=> r.local.toLowerCase().includes(state.search));
+  if(state.search){
+    // sem acento, pontuação nem espaços: "joao" acha "João", "em frassinetti" acha "E.M. Frassinetti"
+    const semEspaco = s => normChave(s).replace(/ /g, '');
+    const termo = semEspaco(state.search);
+    rows = rows.filter(r=> semEspaco(r.local).includes(termo));
+  }
   if(state.demanda===true) rows = rows.filter(r=>r.demanda_final);
   if(state.demanda===false) rows = rows.filter(r=>!r.demanda_final);
   if(state.ac) rows = rows.filter(r=> state.ac===DONE_MARKER ? isDone(r.ac_status) : state.ac===PENDING_MARKER ? isPending(r.ac_status) : r.ac_status===state.ac);
@@ -2224,6 +2245,21 @@ modalOverlay.addEventListener('click', (e)=>{ if(e.target===modalOverlay) closeM
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeModal(); closeEditModal(); } });
 
 document.getElementById('searchBox').addEventListener('input', (e)=>{ state.search = e.target.value.trim().toLowerCase(); renderDetail(); });
+// a barra fixa pode ter 1 ou 2 linhas conforme a largura: a rolagem até as seções
+// (Enter da busca, "Visualizar", cliques nos gráficos) desconta a altura real dela
+(function(){
+  const barra = document.querySelector('.session-bar');
+  const ajustar = ()=>{ document.documentElement.style.scrollPaddingTop = (barra.offsetHeight + 10) + 'px'; };
+  if(window.ResizeObserver) new ResizeObserver(ajustar).observe(barra);
+  ajustar();
+})();
+// a busca fica na barra do topo; Enter leva até a lista de escolas (e fecha o teclado no celular)
+document.getElementById('searchBox').addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  e.target.blur();
+  document.getElementById('detailTable').closest('section').scrollIntoView({behavior:'smooth', block:'start'});
+});
 document.getElementById('demandaFilter').addEventListener('change', (e)=>{
   const v = e.target.value;
   state.demanda = v==='com' ? true : (v==='sem' ? false : null);
