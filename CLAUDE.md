@@ -47,6 +47,7 @@ Responda sempre em português.
 ## Regras de dados que já causaram bugs
 
 - **Planilha em português (vírgula decimal).** Nunca gravar coordenada como texto: ponto vira separador de milhar (`-60.025357` vira `-60025357`). O Apps Script converte com `parseCoord_()` antes de gravar. Para escrever pela API do Sheets, use valores numéricos com `valueInputOption: RAW`, nunca `USER_ENTERED` com ponto.
+- **Datas dos chamados (`data`, `atualizado_em`).** São texto "dd/MM/yyyy HH:mm" no horário de Manaus (`agoraManaus_()`). Gravar com `setNumberFormat('@')` + `setValues` — **nunca `appendRow`**: ele age como digitação e a planilha converte o texto em data no fuso dela (a planilha está em GMT). Ler com `getDisplayValues()`, nunca convertendo `Date` para Manaus (isso deixava a hora 4h atrasada: 09:11 aparecia 05:11). Não mudar o fuso da planilha: as datas antigas que viraram data mudariam de hora.
 - Status equivalentes: `EM ANDAMENTO` = `ENCAMINHADO` (pendente); `CONCLUÍDO` = `FINALIZADO` (concluído).
 - Sem demanda: `SEM SOLICITAÇÃO DE MANUTENÇÃO DE AR CONDICIONADO` (AC) e `SEM SERVIÇOS SOLICITADOS PARA O PLEITO` (predial), além de `Não informado`.
 - Nomes de escola variam entre fontes (acentos, "PT" no final, grafias como FRASSINETE/FRASSINETTI). Para cruzar listas, normalize (maiúsculas, sem acento, sem pontuação) e use similaridade, conferindo os casos duvidosos com o usuário.
