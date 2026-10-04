@@ -39,7 +39,7 @@ Responda sempre em português.
 `id, data, zona, escola, secoes, secao, categoria, empresa, status, descricao, criado_por, atualizado_em`
 
 - Categorias: `Ar-condicionado`, `Predial`
-- Empresas: `PLATINA, CB BOTELHO, SEMED, ECOLIFE, MCA, MMGR, ENS, PAIVA, SELF`
+- Empresas: `PLATINA, CB BOTELHO, SEMED, ECOLIFE, MCA, MMGR, ENS, PAIVA, SELF, SUPLEX` — a lista `CH_EMPRESAS` existe igual no `index.html` e no `Code.gs`; mudar sempre nos dois (o Apps Script recusa empresa fora da lista).
 - Status: `Aberto`, `Em andamento`, `Concluído`
 - Todas as colunas com formato texto, para não perder zero à esquerda da seção (ex: 0412).
 
