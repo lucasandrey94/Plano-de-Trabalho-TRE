@@ -227,7 +227,7 @@
   .login-error{ color:var(--danger); font-size:0.85rem; margin-top:10px; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn{ margin-top:20px; width:100%; padding:11px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-weight:650; font-size:0.95rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn:hover{ opacity:0.9; }
-  .session-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding:8px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; position:sticky; top:0; z-index:50; }
+  .session-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding:8px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; position:-webkit-sticky; position:sticky; top:0; z-index:50; }
   /* barra fixa no topo: ao rolar até uma seção, ela não fica escondida atrás da barra */
   section{ scroll-margin-top:72px; }
   @media (max-width:760px){ section{ scroll-margin-top:100px; } } /* no celular a barra quebra em 2 linhas */
@@ -250,6 +250,12 @@
   .emp-progress-card.collapsed .collapse-body{ display:none; }
   .emp-progress-card:not(.collapsed) .collapse-ind svg{ transform:rotate(180deg); }
   .emp-progress-card .collapse-body{ margin-top:14px; }
+  /* seção de gráficos "Demanda por zona": recolhida por padrão */
+  .graficos-sec.collapsed .charts{ display:none; }
+  .graficos-sec.collapsed{ padding-bottom:40px; }
+  .graficos-sec:not(.collapsed) .collapse-ind svg{ transform:rotate(180deg); }
+  /* cards de total de chamados (total, AC, predial) */
+  .ch-kb-grid{ margin:0 0 22px; }
   /* ---- Chamados ---- */
   .ch-grid{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:22px; }
   @media (max-width:900px){ .ch-grid{ grid-template-columns:minmax(0,1fr); } }
@@ -1025,6 +1031,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <!-- Chamados: mesma largura dos gráficos abaixo, com a lista como card principal -->
 <section class="wide-section">
   <h2>Chamados</h2>
+  <div class="kb-grid ch-kb-grid" id="chKbGrid"></div>
   <div class="ch-grid" id="chamadosSection">
     <div class="ch-card ch-card-main">
       <div class="ch-head"><h3>Lista de chamados</h3><div class="ch-counts" id="chCounts"></div></div>
@@ -1049,9 +1056,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
   </div>
 </section>
 
-<section class="wide-section">
-  <h2><span>Demanda por zona (todas as <span id="nZonasDemanda">13</span> zonas da planilha)</span></h2>
-  <div class="charts">
+<section class="wide-section graficos-sec collapsed" id="graficosSec">
+  <h2><button type="button" class="collapse-head" id="graficosToggle" aria-expanded="false" aria-controls="graficosBody">
+    <span>Demanda por zona (todas as <span id="nZonasDemanda">13</span> zonas da planilha)</span>
+    <span class="collapse-ind"><span id="graficosToggleLbl">Mostrar gráficos</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg></span>
+  </button></h2>
+  <div class="charts" id="graficosBody">
     <div class="chartcard half">
       <h3>Escolas com demanda, por zona</h3>
       <div class="hint">Clique numa barra para filtrar a tabela</div>
@@ -2601,6 +2611,27 @@ function renderChamados(silent){
   selo.textContent = pendentes;
   selo.style.display = pendentes ? '' : 'none';
   const escopo = chamadosNoEscopo();
+  // cards de total: todos, ar-condicionado e predial (mesmos filtros dos contadores abaixo)
+  const resumo = cat => {
+    const l = cat ? escopo.filter(c=> c.categoria === cat) : escopo;
+    const n = s => l.filter(c=> c.status === s).length;
+    return { total: l.length, ab: n('Aberto'), and: n('Em andamento'), conc: n('Concluído') };
+  };
+  const plural = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
+  document.getElementById('chKbGrid').innerHTML = [
+    Object.assign({ titulo: 'Total de chamados — AC + Predial', main: true }, resumo(null)),
+    Object.assign({ titulo: 'Chamados de Ar-condicionado' }, resumo('Ar-condicionado')),
+    Object.assign({ titulo: 'Chamados de Predial' }, resumo('Predial')),
+  ].map(k=>`
+    <div class="kb-card ${k.main ? 'kb-main' : ''}">
+      <div class="kb-title">${k.titulo}</div>
+      <div class="kb-total">${k.total}<span class="kb-unit">${k.total === 1 ? 'chamado' : 'chamados'}</span></div>
+      <div class="kb-sub">
+        <span class="ch-status open">${plural(k.ab, 'aberto', 'abertos')}</span>
+        <span class="ch-status prog">${k.and} em andamento</span>
+        <span class="ch-status done">${plural(k.conc, 'concluído', 'concluídos')}</span>
+      </div>
+    </div>`).join('');
   // contadores (sobre os chamados que passam pelos filtros da barra da tabela)
   const cont = { 'Aberto':0, 'Em andamento':0, 'Concluído':0 };
   escopo.forEach(c=>{ if(cont[c.status]!==undefined) cont[c.status]++; });
@@ -2887,7 +2918,10 @@ function exportarCards(lista){
   cv.toBlob(blob=>{
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = lista.length===1 ? `chamado_${lista[0].id}.png` : `chamados_${new Date().toISOString().slice(0,10)}.png`;
+    // data local (toISOString é UTC: em Manaus, depois das 20h, já dava o dia seguinte);
+    // traço no lugar da barra, que não pode existir em nome de arquivo
+    const hoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    a.download = lista.length===1 ? `chamado_${lista[0].id}.png` : `Chamados - ${hoje}.png`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=> URL.revokeObjectURL(a.href), 4000);
   }, 'image/png');
@@ -2909,6 +2943,25 @@ document.getElementById('chExportAll').onclick = ()=> exportarCards(chamadosFilt
     const aberto = card.classList.contains('collapsed');
     aplicar(aberto);
     safeSet('tre_emp_aberto', aberto ? '1' : '0');
+  };
+})();
+// ---- Seção de gráficos "Demanda por zona": recolhida por padrão ----
+(function(){
+  const sec = document.getElementById('graficosSec');
+  const btn = document.getElementById('graficosToggle');
+  const lbl = document.getElementById('graficosToggleLbl');
+  function aplicar(aberto){
+    sec.classList.toggle('collapsed', !aberto);
+    btn.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    lbl.textContent = aberto ? 'Ocultar gráficos' : 'Mostrar gráficos';
+    // criados escondidos, os gráficos precisam se medir de novo ao aparecer
+    if(aberto) [chartDemanda, chartCrit, chartPred, chartAC].forEach(c=> c.resize());
+  }
+  aplicar(safeGet('tre_graficos_abertos') === '1');
+  btn.onclick = ()=>{
+    const aberto = sec.classList.contains('collapsed');
+    aplicar(aberto);
+    safeSet('tre_graficos_abertos', aberto ? '1' : '0');
   };
 })();
 function atualizarResumoEmp(){
