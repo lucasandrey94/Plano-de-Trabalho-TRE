@@ -41,6 +41,7 @@ Responda sempre em português.
 - Categorias: `Ar-condicionado`, `Predial`
 - Empresas: `PLATINA, CB BOTELHO, SEMED, ECOLIFE, MCA, MMGR, ENS, PAIVA, SELF, SUPLEX` — a lista `CH_EMPRESAS` existe igual no `index.html` e no `Code.gs`; mudar sempre nos dois (o Apps Script recusa empresa fora da lista).
 - Status: `Aberto`, `Em andamento`, `Concluído`
+- Quem muda o status: o ADM em qualquer chamado. A empresa (inclusive `semed`, empresa SEMED) só nos chamados dela, só para `Em andamento` ou `Concluído`, e não reabre chamado concluído. A regra existe no `index.html` (o que aparece) e no `Code.gs` (o que vale).
 - Todas as colunas com formato texto, para não perder zero à esquerda da seção (ex: 0412).
 
 ## Regras de dados que já causaram bugs
@@ -60,7 +61,7 @@ Responda sempre em português.
 ## Endpoints do Apps Script
 
 - `GET ?session=TOKEN` → dados agrupados por zona (filtrados por empresa)
-- `POST` com `{action, session, ...}`: `login`, `marcar-concluido`, `desmarcar-concluido` (admin), `escola-salvar` (admin), `escola-excluir` (admin), `chamados-listar` (inclusive consulta), `chamado-salvar`, `chamado-status`, `chamado-excluir` (admin)
+- `POST` com `{action, session, ...}`: `login`, `marcar-concluido`, `desmarcar-concluido` (admin), `escola-salvar` (admin), `escola-excluir` (admin), `chamados-listar` (inclusive consulta), `chamado-salvar` (admin), `chamado-status` (admin, ou a empresa do chamado — ver regra acima), `chamado-editar` (admin), `chamado-excluir` (admin)
 - O front usa `Content-Type: text/plain` no POST de propósito, para evitar o preflight CORS que o Apps Script não responde.
 - Sessões ficam no CacheService por 6 horas.
 
