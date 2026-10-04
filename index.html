@@ -227,7 +227,16 @@
   .login-error{ color:var(--danger); font-size:0.85rem; margin-top:10px; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn{ margin-top:20px; width:100%; padding:11px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-weight:650; font-size:0.95rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .login-btn:hover{ opacity:0.9; }
-  .session-bar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; }
+  .session-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding:8px 6vw; background:var(--paper-2); border-bottom:1px solid var(--line); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.85rem; position:sticky; top:0; z-index:50; }
+  /* barra fixa no topo: ao rolar até uma seção, ela não fica escondida atrás da barra */
+  section{ scroll-margin-top:72px; }
+  @media (max-width:760px){ section{ scroll-margin-top:100px; } } /* no celular a barra quebra em 2 linhas */
+  /* "Visualizar: Escolas / Chamados" — atalho pro modo do mapa e da tabela */
+  .visao-box{ display:flex; align-items:center; gap:16px; margin:0; padding:1px 12px 5px; border:1px solid var(--line); border-radius:6px; }
+  .visao-box legend{ padding:0 4px; font-size:0.72rem; color:var(--muted); }
+  .visao-box label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--ink); font-weight:600; }
+  .visao-box input{ margin:0; width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
+  .visao-n{ font-size:0.72rem; font-weight:650; padding:1px 7px; border-radius:20px; background:rgba(169,117,44,0.18); color:var(--amber); }
   .session-bar .who{ color:var(--muted); }
   .session-bar .who b{ color:var(--ink); }
   .logout-btn{ padding:6px 14px; border-radius:20px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:0.82rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
@@ -271,6 +280,9 @@
   .ch-aviso{ color:var(--danger); font-size:0.82rem; line-height:1.4; margin:0 0 10px; font-family:-apple-system,"Segoe UI",sans-serif; }
   .ch-empty{ color:var(--muted); font-size:0.88rem; padding:22px 4px; font-family:-apple-system,"Segoe UI",sans-serif; line-height:1.5; }
   .ch-canvas{ position:relative; flex:1; min-height:260px; }
+  /* canvas fora do fluxo: só preenche o espaço do card. Se ele contasse na altura do card,
+     card e gráfico cresceriam um ao outro sem parar (o gráfico chegou a 25 mil px) */
+  .ch-canvas > canvas{ position:absolute; inset:0; }
   .ch-canvas-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:0.88rem; font-family:-apple-system,"Segoe UI",sans-serif; text-align:center; padding:20px; }
   .acoes-cell{ white-space:nowrap; }
   .ch-open-btn{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px 6px 10px; margin-right:6px; border-radius:20px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-size:0.82rem; font-weight:650; font-family:-apple-system,"Segoe UI",sans-serif; cursor:pointer; vertical-align:middle; white-space:nowrap; box-shadow:0 1px 0 rgba(0,0,0,0.12); }
@@ -976,6 +988,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="appRoot" style="display:none">
 <div class="session-bar">
   <div class="who">Conectado como <b id="whoLabel"></b></div>
+  <fieldset class="visao-box">
+    <legend>Visualizar</legend>
+    <label><input type="radio" name="visao" value="escolas" checked>Escolas</label>
+    <label><input type="radio" name="visao" value="chamados">Chamados <span class="visao-n" id="visaoPendentes" title="Chamados abertos ou em andamento" style="display:none"></span></label>
+  </fieldset>
   <button class="logout-btn" id="logoutBtn">Sair</button>
 </div>
 <header>
@@ -1033,7 +1050,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 </section>
 
 <section class="wide-section">
-  <h2>Demanda por zona (todas as 14 zonas da planilha)</h2>
+  <h2><span>Demanda por zona (todas as <span id="nZonasDemanda">13</span> zonas da planilha)</span></h2>
   <div class="charts">
     <div class="chartcard half">
       <h3>Escolas com demanda, por zona</h3>
@@ -1225,7 +1242,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   </div>
 </div>
 
-<footer>Fontes: planilha "PLANO_DE_TRABALHO_TRE_2026" (aba GERAL, 257 escolas em 14 zonas), relatórios de vistoria das Zonas 58ª (Anexo I), 59ª (2ª vistoria SEMED) e 63ª (Ofício 81/2026/63ª ZE).</footer>
+<footer>Fontes: planilha "PLANO_DE_TRABALHO_TRE_2026" (aba GERAL, <span id="nEscolasFonte">257</span> escolas em <span id="nZonasFonte">13</span> zonas), relatórios de vistoria das Zonas 58ª (Anexo I), 59ª (2ª vistoria SEMED) e 63ª (Ofício 81/2026/63ª ZE).</footer>
 </div><!-- /appRoot -->
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1327,6 +1344,10 @@ Object.values(zonas).forEach(list=> list.forEach(r=>{
   if(isPending(r.pred_status)) predPendente++; else if(isDone(r.pred_status)) predConcluido++;
 }));
 document.getElementById('kpiSub').textContent = zoneNames.length + ' zonas · ' + totalEscolas + ' escolas';
+// os outros textos que citam quantas zonas/escolas existem saem dos mesmos dados
+document.getElementById('nZonasDemanda').textContent = zoneNames.length;
+document.getElementById('nZonasFonte').textContent = zoneNames.length;
+document.getElementById('nEscolasFonte').textContent = totalEscolas;
 const empresasSet = new Set();
 Object.values(zonas).forEach(list=> list.forEach(r=>{ if(r.ac_emp) empresasSet.add(r.ac_emp); if(r.pred_emp) empresasSet.add(r.pred_emp); }));
 const kpis = [
@@ -2020,6 +2041,9 @@ document.getElementById('mapChConcluidos').addEventListener('change', (e)=>{
 initLeafletMap();
 
 function renderDetail(skipMap){
+  // o "Visualizar" do topo acompanha o modo, não importa por onde ele mudou
+  const visao = state.campo === 'chamados' ? 'chamados' : 'escolas';
+  document.querySelectorAll('input[name="visao"]').forEach(r=> r.checked = (r.value === visao));
   renderThead();
   // no modo Chamados a tabela mostra as mesmas escolas do mapa
   let rows = state.campo==='chamados' ? escolasComChamados().map(e=> e.row) : getRows();
@@ -2200,6 +2224,19 @@ document.getElementById('demandaFilter').addEventListener('change', (e)=>{
 document.getElementById('campoFilter').addEventListener('change', (e)=>{
   state.campo = e.target.value;
   renderChips(); renderDetail();
+});
+
+// "Visualizar: Escolas / Chamados" na barra do topo: atalho pro mesmo modo do
+// seletor acima, que já rola até a parte da página que interessa
+document.querySelectorAll('input[name="visao"]').forEach(radio=>{
+  radio.addEventListener('change', ()=>{
+    if(!radio.checked) return;
+    state.campo = radio.value === 'chamados' ? 'chamados' : 'both';
+    document.getElementById('campoFilter').value = state.campo;
+    renderChips(); renderDetail();
+    const alvo = radio.value === 'chamados' ? 'chamadosSection' : 'detailTable';
+    document.getElementById(alvo).closest('section').scrollIntoView({behavior:'smooth', block:'start'});
+  });
 });
 
 // popula o filtro de DDZ (distrito) com os valores realmente existentes na base
@@ -2558,6 +2595,11 @@ function chamadosFiltrados(){
 
 function renderChamados(silent){
   if(chSnapshot === null) return; // ainda carregando (ou falhou): mantém a mensagem do card
+  // número no "Chamados" da barra do topo: abertos + em andamento
+  const pendentes = chamados.filter(c=> c.status !== 'Concluído').length;
+  const selo = document.getElementById('visaoPendentes');
+  selo.textContent = pendentes;
+  selo.style.display = pendentes ? '' : 'none';
   const escopo = chamadosNoEscopo();
   // contadores (sobre os chamados que passam pelos filtros da barra da tabela)
   const cont = { 'Aberto':0, 'Em andamento':0, 'Concluído':0 };
