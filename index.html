@@ -2615,6 +2615,8 @@ let chSnapshot = null;
 let chamadoRow = null;     // escola do chamado novo
 let chamadoEditId = null;  // id do chamado sendo editado (null = chamado novo)
 const chStatusCls = s => s==='Concluído' ? 'done' : (s==='Em andamento' ? 'prog' : 'open');
+// data + hora de abertura ("03/10/2026 18:13"); se a planilha só tiver a data, mostra só ela
+const chDataHora = c => { const [d, h] = String(c.data||'').trim().split(/\s+/); return h ? d + ' ' + h.slice(0, 5) : (d || ''); };
 // quem muda o status: o ADM em qualquer chamado; a empresa só nos dela, só pra
 // "Em andamento" ou "Concluído", e sem reabrir concluído (mesma regra do Apps Script)
 const ehDaMinhaEmpresa = c => !!MY_COMPANY && String(c.empresa||'').trim().toUpperCase() === String(MY_COMPANY).toUpperCase();
@@ -2736,7 +2738,7 @@ function renderChamados(silent){
       <div class="ch-item">
         <div class="ch-item-main">
           <div class="ch-item-escola"><span class="ch-item-num">#${escapeHtml(c.id)}</span>${escapeHtml(c.escola)}</div>
-          <div class="ch-item-meta">Zona ${escapeHtml(c.zona)}${c.secao ? ', seção ' + escapeHtml(c.secao) : ''} · ${escapeHtml(c.categoria)} · ${escapeHtml(c.empresa)} · ${escapeHtml((c.data||'').split(' ')[0])}</div>
+          <div class="ch-item-meta">Zona ${escapeHtml(c.zona)}${c.secao ? ', seção ' + escapeHtml(c.secao) : ''} · ${escapeHtml(c.categoria)} · ${escapeHtml(c.empresa)} · ${escapeHtml(chDataHora(c))}</div>
           <div class="ch-item-desc">${escapeHtml(c.descricao)}</div>
         </div>
         <div class="ch-item-side">
@@ -2961,7 +2963,7 @@ function desenharCard(ctx, c, x, y, w, desenhar){
 
   ctx.textBaseline = 'top';
   ctx.font = `14px ${F}`; ctx.fillStyle = '#6b6459';
-  ctx.textAlign = 'left'; ctx.fillText(`Chamado #${c.id} · ${(c.data||'').split(' ')[0]}`, x+pad, cy);
+  ctx.textAlign = 'left'; ctx.fillText(`Chamado #${c.id} · ${chDataHora(c)}`, x+pad, cy);
   ctx.textAlign = 'right'; ctx.fillText(`Zona ${c.zona}`, x+w-pad, cy);
   ctx.textAlign = 'left';
   cy += lTopo + 10;
