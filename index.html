@@ -3063,7 +3063,19 @@ atualizarResumoEmp();
 
 refreshChamados();
 
-setInterval(()=>{ refreshAllData(true); refreshChamados(true); }, 5 * 60 * 1000);
+// escolas a cada 5 min; chamados a cada 1 min (com a página visível) e na hora
+// em que a pessoa volta pro site/app — assim um chamado novo aparece rápido
+// sem recarregar, e aba esquecida em segundo plano não fica consultando à toa
+setInterval(()=>{ refreshAllData(true); }, 5 * 60 * 1000);
+setInterval(()=>{ if(!document.hidden) refreshChamados(true); }, 60 * 1000);
+let chUltimaVolta = 0;
+function chamadosAoVoltar(){
+  if(document.hidden || Date.now() - chUltimaVolta < 15000) return; // no máx. 1 vez a cada 15 s
+  chUltimaVolta = Date.now();
+  refreshChamados(true);
+}
+document.addEventListener('visibilitychange', chamadosAoVoltar);
+window.addEventListener('pageshow', (e)=>{ if(e.persisted) chamadosAoVoltar(); }); // página restaurada da memória (celular)
 
 renderBtns(); renderChips(); renderDetail();
 

@@ -67,7 +67,7 @@ Responda sempre em português.
 
 ## Convenções do front (index.html)
 
-- Atualização automática a cada 5 minutos com `refreshAllData(true)` e `refreshChamados(true)`: compara com o snapshot anterior e só redesenha se algo mudou, sem animação, sem perder filtros, busca ou posição da tela.
+- Atualização automática: escolas a cada 5 minutos (`refreshAllData(true)`); chamados a cada 1 minuto com a página visível e também na hora em que a pessoa volta pro site/app (`refreshChamados(true)`). Compara com o snapshot anterior e só redesenha se algo mudou, sem animação, sem perder filtros, busca ou posição da tela.
 - Depois de salvar, concluir ou excluir: chamar `refreshAllData()` / `refreshChamados()`. **Não usar `location.reload()`** (perde filtros) — a única exceção é o botão de sair.
 - Ao abrir modal, resetar o estado do botão de salvar (um bug antigo deixava "Salvando..." preso).
 - Popup do mapa aberto adia o redesenho do mapa até fechar.
