@@ -242,7 +242,14 @@
      instalado). O JS reserva no topo da página o espaço da altura real dela e
      desconta essa altura na rolagem até as seções, porque ela tem 2 ou mais linhas */
   .session-bar .who{ order:1; }
-  .session-bar .logout-btn{ order:3; }
+  /* "Atualizar agora" + "Sair", juntos à direita */
+  .barra-acoes{ order:3; display:flex; align-items:center; gap:8px; }
+  .refresh-btn{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:0.82rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; white-space:nowrap; }
+  .refresh-btn:hover{ border-color:var(--accent); }
+  .refresh-btn:disabled{ opacity:0.7; cursor:default; }
+  .refresh-btn.girando svg{ animation:girar 0.8s linear infinite; }
+  @keyframes girar{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .refresh-btn.girando svg{ animation:none; } }
   /* "Visualizar: Escolas / Chamados" — atalho pro modo do mapa e da tabela */
   .visao-box{ order:2; display:flex; align-items:center; gap:16px; margin:0; padding:1px 12px 5px; border:1px solid var(--line); border-radius:6px; }
   .visao-box legend{ padding:0 4px; font-size:0.72rem; color:var(--muted); }
@@ -260,8 +267,10 @@
     .who-pre{ display:none; }
     .visao-box{ flex:0 0 auto; gap:10px; padding:2px 8px 4px; }
     .visao-box legend{ display:none; }
-    .busca-topo{ order:3; flex:1 1 calc(100% - 80px); }
-    .session-bar .logout-btn{ order:4; }
+    .busca-topo{ order:3; flex:1 1 calc(100% - 130px); }
+    .barra-acoes{ order:4; gap:6px; }
+    .refresh-txt{ display:none; } /* no celular, só o ícone ↻ */
+    .refresh-btn{ padding:6px 9px; }
     .busca-topo input{ max-width:none; font-size:16px; } /* 16px: o iPhone não dá zoom ao tocar no campo */
   }
   .session-bar .who{ color:var(--muted); }
@@ -1030,7 +1039,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <label><input type="radio" name="visao" value="escolas" checked>Escolas</label>
     <label><input type="radio" name="visao" value="chamados">Chamados <span class="visao-n" id="visaoPendentes" title="Chamados abertos ou em andamento" style="display:none"></span></label>
   </fieldset>
-  <button class="logout-btn" id="logoutBtn">Sair</button>
+  <div class="barra-acoes">
+    <button type="button" class="refresh-btn" id="atualizarAgoraBtn" title="Buscar agora os dados mais recentes (escolas e chamados)" aria-label="Atualizar agora"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg><span class="refresh-txt">Atualizar agora</span></button>
+    <button class="logout-btn" id="logoutBtn">Sair</button>
+  </div>
 </div>
 <header>
   <h1>Plano de Trabalho - TRE</h1>
@@ -3076,6 +3088,22 @@ function chamadosAoVoltar(){
 }
 document.addEventListener('visibilitychange', chamadosAoVoltar);
 window.addEventListener('pageshow', (e)=>{ if(e.persisted) chamadosAoVoltar(); }); // página restaurada da memória (celular)
+
+// botão "Atualizar agora" (barra do topo, todos os perfis): busca escolas e chamados na hora
+(function(){
+  const btn = document.getElementById('atualizarAgoraBtn');
+  const txt = btn.querySelector('.refresh-txt');
+  btn.onclick = async ()=>{
+    btn.disabled = true; btn.classList.add('girando'); txt.textContent = 'Atualizando…';
+    try{
+      await Promise.all([refreshAllData(), refreshChamados()]);
+      txt.textContent = 'Atualizado ✓';
+    } finally {
+      btn.classList.remove('girando'); btn.disabled = false;
+      setTimeout(()=>{ txt.textContent = 'Atualizar agora'; }, 2000);
+    }
+  };
+})();
 
 renderBtns(); renderChips(); renderDetail();
 
