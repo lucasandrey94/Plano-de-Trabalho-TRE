@@ -192,6 +192,27 @@
   .modal ul.items li{ margin-bottom:7px; font-size:0.95rem; }
   .modal .sectiontitle{ font-family:-apple-system,"Segoe UI",sans-serif; font-weight:650; font-size:0.88rem; margin:0 0 10px; color:var(--ink);}
   .modal .nodata{ color:var(--muted); font-style:italic; font-size:0.92rem;}
+  /* checklist da solicitação (detalhe da escola e formulário) */
+  .ck-prog{ display:flex; align-items:center; gap:8px; font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.78rem; color:var(--muted); white-space:nowrap; }
+  .ck-bar{ flex:1; height:6px; border-radius:3px; background:var(--line); overflow:hidden; }
+  .ck-bar > span{ display:block; height:100%; background:var(--accent-2); border-radius:3px; transition:width .25s; }
+  .ck-list{ list-style:none; margin:6px 0 0; padding:0; }
+  .ck-item{ display:flex; gap:9px; align-items:flex-start; padding:5px 0; font-size:0.86rem; line-height:1.4; cursor:pointer; }
+  .ck-item input{ width:18px; height:18px; margin:1px 0 0; flex:none; accent-color:var(--accent-2); cursor:pointer; }
+  .ck-item.travado{ cursor:default; }
+  .ck-item.travado input{ cursor:default; }
+  .ck-item.ok .ck-t{ color:var(--muted); }
+  .ck-meta{ display:block; font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.72rem; color:var(--accent-2); margin-top:1px; }
+  .ck-mini{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.72rem; color:var(--muted); margin-top:2px; }
+  .ck-edit-row{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .field .ck-edit-row input[type="checkbox"]{ width:18px; height:18px; padding:0; margin:0; flex:none; accent-color:var(--accent-2); cursor:pointer; }
+  .field .ck-edit-row input[type="checkbox"]:disabled{ cursor:default; opacity:0.4; }
+  .field .ck-edit-row input[type="text"]{ flex:1 1 auto; width:auto; min-width:0; }
+  .ck-del{ flex:none; background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; line-height:1; padding:6px 7px; border-radius:4px; }
+  .ck-del:hover{ color:var(--danger); background:var(--line); }
+  .ck-add{ padding:6px 12px; border-radius:6px; border:1px dashed var(--accent-2); background:transparent; color:var(--accent-2); font-weight:600; font-size:0.8rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
+  .ck-add:hover{ background:var(--accent-2); color:#fff; }
+  .ck-hint{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.74rem; color:var(--muted); margin-top:6px; line-height:1.4; }
 
   /* ---- Responsivo: mobile/tablet vira "cartões" em vez de tabela ---- */
   @media (max-width: 760px){
@@ -1233,7 +1254,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
       <div class="field"><label>Empresa</label><input type="text" id="ef_ac_emp"></div>
     </div>
-    <div class="field"><label>Solicitação</label><textarea id="ef_ac_sol"></textarea></div>
+    <div class="field"><label>Itens da solicitação (checklist)</label>
+      <div class="ck-edit" id="ef_ac_itens"></div>
+      <button type="button" class="ck-add" data-campo="ac">+ Adicionar item</button>
+      <div class="ck-hint" id="ef_ac_hint"></div>
+    </div>
 
     <div class="form-section-title">Predial</div>
     <div class="field-row">
@@ -1248,7 +1273,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
       <div class="field"><label>Empresa</label><input type="text" id="ef_pred_emp"></div>
     </div>
-    <div class="field"><label>Solicitação</label><textarea id="ef_pred_sol"></textarea></div>
+    <div class="field"><label>Itens da solicitação (checklist)</label>
+      <div class="ck-edit" id="ef_pred_itens"></div>
+      <button type="button" class="ck-add" data-campo="pred">+ Adicionar item</button>
+      <div class="ck-hint" id="ef_pred_hint"></div>
+    </div>
 
     <div class="form-section-title">Outros dados</div>
     <div class="field-row">
@@ -1439,6 +1468,38 @@ const ACSEM = 'SEM SOLICITAÇÃO DE MANUTENÇÃO DE AR CONDICIONADO';
 const PREDSEM = 'SEM SERVIÇOS SOLICITADOS PARA O PLEITO';
 function acHasDemand(r){ return r.ac_status !== ACSEM && r.ac_status !== 'Não informado'; }
 function predHasDemand(r){ return r.pred_status !== PREDSEM && r.pred_status !== 'Não informado'; }
+
+// ---- CHECKLIST da solicitação (campo 'ac' ou 'pred') ----
+// Os itens ficam em row.ac_itens / row.pred_itens: [{t, ok, por, em}]. Escola sem
+// checklist gravado: cada linha da solicitação vira um item, todos no estado do
+// serviço. As mesmas regras estão no Code.gs (textoEmItens_, statusPelosItens_).
+const STATUS_FEITO = { ac:'CONCLUÍDO', pred:'FINALIZADO' };
+function semDemandaStatus(s){ return !s || s===ACSEM || s===PREDSEM || s==='Não informado'; }
+function textoEmItens(txt){
+  return String(txt||'').split(/\r?\n/).map(s=> s.replace(/^\s*[-*•–—·]+\s*/, '').trim()).filter(Boolean);
+}
+function itensServico(row, campo){
+  const salvos = row[campo + '_itens'];
+  if(Array.isArray(salvos) && salvos.length) return salvos.map(i=>({ t:String(i.t||''), ok:!!i.ok, por:i.por||'', em:i.em||'' }));
+  const feito = isDone(row[campo + '_status']);
+  return textoEmItens(row[campo + '_sol']).map(t=>({ t, ok:feito, por:'', em:'' }));
+}
+// todos feitos = concluído; alguns = em andamento; nenhum = continua pendente
+function statusPelosItens(campo, itens, atual){
+  if(!itens.length) return atual;
+  const feitos = itens.filter(i=> i.ok).length;
+  if(feitos === itens.length) return STATUS_FEITO[campo];
+  if(feitos > 0) return 'EM ANDAMENTO';
+  if(isPending(atual)) return atual;
+  return isDone(atual) ? 'EM ANDAMENTO' : 'ENCAMINHADO';
+}
+// "2/5 itens" embaixo do status na tabela (só com 2 itens ou mais)
+function ckMini(r, campo){
+  if(semDemandaStatus(r[campo + '_status'])) return '';
+  const itens = itensServico(r, campo);
+  if(itens.length < 2) return '';
+  return `<div class="ck-mini">${itens.filter(i=> i.ok).length}/${itens.length} itens</div>`;
+}
 const DONE_MARKER = '__CONCLUIDO_OU_FINALIZADO__';
 const PENDING_MARKER = '__EM_ANDAMENTO_OU_ENCAMINHADO__';
 
@@ -2138,9 +2199,9 @@ function renderDetail(skipMap){
       <td data-label="Escola"><button class="escolabtn" data-i="${i}">${r.local}</button> <span class="tag none zonatag-inline">Zona ${r.zona}${r.secoes!=null?' - '+r.secoes+' Seções':''}</span> ${r.lat && r.lon ? `<a class="pin-link" href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}" target="_blank" rel="noopener" title="Abrir no Google Maps">📍</a>` : ''}</td>
       <td data-label="Demanda (Excel · PDF)">${demandaTag(r)}</td>
       <td data-label="Empresa (AC)">${acIsMine ? (r.ac_emp || '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
-      <td data-label="Ar-condicionado">${acIsMine ? `<div class="statuscell" title="${r.ac_status.replace(/"/g,'&quot;')}">${r.ac_status}</div>` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
+      <td data-label="Ar-condicionado">${acIsMine ? `<div class="statuscell" title="${r.ac_status.replace(/"/g,'&quot;')}">${r.ac_status}</div>${ckMini(r,'ac')}` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
       <td data-label="Empresa (predial)">${predIsMine ? (r.pred_emp || '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
-      <td data-label="Predial">${predIsMine ? `<div class="statuscell" title="${r.pred_status.replace(/"/g,'&quot;')}">${r.pred_status}</div>` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
+      <td data-label="Predial">${predIsMine ? `<div class="statuscell" title="${r.pred_status.replace(/"/g,'&quot;')}">${r.pred_status}</div>${ckMini(r,'pred')}` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
       <td data-label="Criticidade elétrica">${critTag(r.crit_elet)}</td>
       ${IS_ADMIN ? `<td data-label="Ações" class="acoes-cell"><button class="ch-open-btn" data-i="${i}" title="Abrir chamado para esta escola"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5"/><path d="M16 19h6"/><path d="M19 16v6"/></svg><span>Chamado</span></button><button class="rowaction-btn edit-btn" data-i="${i}" title="Editar">✎</button><button class="rowaction-btn del-btn" data-i="${i}" title="Excluir">🗑</button></td>` : ''}
     </tr>`;
@@ -2170,6 +2231,149 @@ function renderDetail(skipMap){
 // MODAL — detalhamento da vistoria (PDF) e solicitações da planilha
 // =====================================================================
 const modalOverlay = document.getElementById('modalOverlay');
+let modalRow = null;    // escola aberta no detalhe
+let ckSalvando = null;  // {row, campo} enquanto um item está sendo gravado (trava a lista daquele serviço)
+
+// ADM marca e desmarca qualquer item; a empresa só marca itens do serviço que é dela
+function podeMarcarItens(row, campo){
+  if(IS_READONLY) return false;
+  return IS_ADMIN || (!!MY_COMPANY && row[campo + '_emp'] === MY_COMPANY);
+}
+
+// caixa de AC ou Predial do detalhe: status, checklist com progresso e botão
+function renderServicoModal(campo){
+  const row = modalRow;
+  const P = campo==='ac' ? 'modalAc' : 'modalPred';
+  const servico = campo==='ac' ? 'Ar-condicionado' : 'Predial';
+  const status = row[campo + '_status'];
+  document.getElementById(P + 'Status').textContent = status;
+  const solEl = document.getElementById(P + 'Sol');
+  const btn = document.getElementById(P + 'Conclude');
+  const itens = semDemandaStatus(status) ? [] : itensServico(row, campo);
+
+  if(!itens.length){
+    // sem demanda ou sem solicitação escrita: texto e botão de sempre
+    solEl.textContent = row[campo + '_sol'] ? row[campo + '_sol'] : 'Nenhuma solicitação registrada na planilha.';
+    if(IS_READONLY){ btn.style.display = 'none'; }
+    else { btn.style.display = ''; wireConcludeBtn(btn, row, campo, isDone(status)); }
+    return;
+  }
+
+  const pode = podeMarcarItens(row, campo);
+  const salvando = !!ckSalvando && ckSalvando.row === row && ckSalvando.campo === campo;
+  const feitos = itens.filter(i=> i.ok).length;
+  solEl.innerHTML =
+    `<div class="ck-prog"><div class="ck-bar"><span style="width:${Math.round(100 * feitos / itens.length)}%"></span></div>` +
+    `<span>${salvando ? 'Salvando…' : feitos + ' de ' + itens.length + (itens.length===1 ? ' item' : ' itens')}</span></div>` +
+    '<ul class="ck-list">' + itens.map((it, idx)=>{
+      const soAdmDesmarca = it.ok && !IS_ADMIN;
+      const travado = !pode || salvando || soAdmDesmarca;
+      const dica = pode && soAdmDesmarca ? ' title="Só o ADM Geral pode desmarcar"' : '';
+      const meta = it.ok && it.por ? `<span class="ck-meta">✓ ${escapeHtml(it.por)}${it.em ? ' · ' + escapeHtml(it.em) : ''}</span>` : '';
+      return `<li><label class="ck-item${it.ok ? ' ok' : ''}${travado ? ' travado' : ''}"${dica}>` +
+        `<input type="checkbox" data-idx="${idx}"${it.ok ? ' checked' : ''}${travado ? ' disabled' : ''}>` +
+        `<span class="ck-t">${escapeHtml(it.t)}${meta}</span></label></li>`;
+    }).join('') + '</ul>';
+  solEl.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.onchange = ()=> marcarItem(row, campo, Number(cb.dataset.idx), itens[Number(cb.dataset.idx)].t, cb.checked, cb);
+  });
+
+  // atalho pra quando faltam 2 itens ou mais
+  const faltam = itens.length - feitos;
+  if(!pode || faltam < 2){ btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  btn.classList.remove('conclude-btn-undo');
+  btn.disabled = salvando;
+  btn.textContent = '✓ Concluir os ' + faltam + ' itens que faltam';
+  btn.onclick = async ()=>{
+    const confirmado = confirm('Marcar como feitos os ' + faltam + ' itens que faltam de ' + servico + ' na escola "' + row.local + '"?' +
+      (IS_ADMIN ? '' : '\n\nSó o ADM Geral pode desmarcar depois.'));
+    if(!confirmado) return;
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    await gravarChecklist(row, campo, 'marcar-concluido', {});
+  };
+}
+
+// grava no Apps Script e redesenha a caixa com a lista que ele devolveu
+async function gravarChecklist(row, campo, acao, extra){
+  ckSalvando = { row, campo };
+  try{
+    const r = await postToScript(acao, Object.assign({ zona: row.zona, local: row.local, campo }, extra));
+    if(r.itens) row[campo + '_itens'] = r.itens;
+    if(r.status) row[campo + '_status'] = r.status;
+  }catch(e){
+    alert('Não foi possível salvar: ' + e.message);
+    if(/mudou/.test(e.message)){ ckSalvando = null; closeModal(); refreshAllData(); return; }
+  }
+  ckSalvando = null;
+  if(modalRow === row && modalOverlay.classList.contains('open')) renderServicoModal(campo);
+  refreshAllData(true); // tabela, mapa e gráficos, sem fechar o detalhe
+}
+
+async function marcarItem(row, campo, idx, texto, ok, cb){
+  if(ok && !IS_ADMIN){
+    const servico = campo==='ac' ? 'Ar-condicionado' : 'Predial';
+    if(!confirm('Confirma que este item de ' + servico + ' foi feito?\n\n"' + texto + '"\n\nSó o ADM Geral pode desmarcar depois.')){
+      cb.checked = false;
+      return;
+    }
+  }
+  // trava a lista enquanto grava (um item por vez)
+  const caixa = cb.closest('.sol');
+  caixa.querySelectorAll('input[type="checkbox"]').forEach(x=> x.disabled = true);
+  const prog = caixa.querySelector('.ck-prog > span:last-child');
+  if(prog) prog.textContent = 'Salvando…';
+  const btn = document.getElementById(campo==='ac' ? 'modalAcConclude' : 'modalPredConclude');
+  btn.disabled = true;
+  await gravarChecklist(row, campo, 'item-marcar', { idx, t: texto, ok });
+}
+
+// serviço sem checklist: o botão de sempre (marcar o serviço inteiro como concluído)
+function wireConcludeBtn(btn, row, campo, jaConcluido){
+  const servico = campo==='ac' ? 'Ar-condicionado' : 'Predial';
+  btn.classList.remove('conclude-btn-undo');
+
+  if(jaConcluido && IS_ADMIN){
+    // só o SEMED pode desmarcar um serviço já concluído
+    btn.disabled = false;
+    btn.classList.add('conclude-btn-undo');
+    btn.textContent = '↺ Desmarcar ' + servico + ' como concluído';
+    btn.onclick = async ()=>{
+      const confirmado = confirm('Tem certeza que deseja DESMARCAR o serviço de ' + servico + ' da escola "' + row.local + '"?\n\nEla volta a aparecer como pendente.');
+      if(!confirmado) return;
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      try{
+        await postToScript('desmarcar-concluido', {zona: row.zona, local: row.local, campo});
+        closeModal();
+        await refreshAllData();
+      }catch(e){
+        btn.disabled = false;
+        btn.textContent = 'Erro — tentar de novo';
+      }
+    };
+    return;
+  }
+
+  btn.disabled = jaConcluido;
+  btn.textContent = jaConcluido ? '✓ Já concluído' : ('✓ Marcar ' + servico + ' como concluído');
+  btn.onclick = async ()=>{
+    const confirmado = confirm('Confirma que o serviço de ' + servico + ' na escola "' + row.local + '" foi realmente concluído?\n\nSó o SEMED pode desfazer essa marcação depois.');
+    if(!confirmado) return;
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    try{
+      await postToScript('marcar-concluido', {zona: row.zona, local: row.local, campo});
+      closeModal();
+      await refreshAllData();
+    }catch(e){
+      btn.disabled = false;
+      btn.textContent = 'Erro — tentar de novo';
+    }
+  };
+}
+
 function openModal(row){
   document.getElementById('modalTitle').textContent = row.local;
   const pdf = row.pdf;
@@ -2200,11 +2404,8 @@ function openModal(row){
     mapsLinkBox.innerHTML = '';
   }
 
-  document.getElementById('modalAcStatus').textContent = row.ac_status;
-  document.getElementById('modalAcSol').textContent = row.ac_sol ? row.ac_sol : 'Nenhuma solicitação registrada na planilha.';
+  modalRow = row;
   document.getElementById('modalAcEmp').textContent = row.ac_emp ? 'Empresa: ' + row.ac_emp : 'Empresa não informada';
-  document.getElementById('modalPredStatus').textContent = row.pred_status;
-  document.getElementById('modalPredSol').textContent = row.pred_sol ? row.pred_sol : 'Nenhuma solicitação registrada na planilha.';
   document.getElementById('modalPredEmp').textContent = row.pred_emp ? 'Empresa: ' + row.pred_emp : 'Empresa não informada';
 
   // se for login de empresa, essa escola só entrou na lista dela porque bate em
@@ -2219,60 +2420,8 @@ function openModal(row){
   acBox.style.gridColumn = (acIsMine && !predIsMine) ? '1 / -1' : '';
   predBox.style.gridColumn = (predIsMine && !acIsMine) ? '1 / -1' : '';
 
-  const acBtn = document.getElementById('modalAcConclude');
-  const predBtn = document.getElementById('modalPredConclude');
-  function wireConcludeBtn(btn, campo, jaConcluido){
-    const servico = campo==='ac' ? 'Ar-condicionado' : 'Predial';
-    btn.classList.remove('conclude-btn-undo');
-
-    if(jaConcluido && IS_ADMIN){
-      // só o SEMED pode desmarcar um serviço já concluído
-      btn.disabled = false;
-      btn.classList.add('conclude-btn-undo');
-      btn.textContent = '↺ Desmarcar ' + servico + ' como concluído';
-      btn.onclick = async ()=>{
-        const confirmado = confirm('Tem certeza que deseja DESMARCAR o serviço de ' + servico + ' da escola "' + row.local + '"?\n\nEla volta a aparecer como pendente.');
-        if(!confirmado) return;
-        btn.disabled = true;
-        btn.textContent = 'Enviando...';
-        try{
-          await postToScript('desmarcar-concluido', {zona: row.zona, local: row.local, campo});
-          closeModal();
-          await refreshAllData();
-        }catch(e){
-          btn.disabled = false;
-          btn.textContent = 'Erro — tentar de novo';
-        }
-      };
-      return;
-    }
-
-    btn.disabled = jaConcluido;
-    btn.textContent = jaConcluido ? '✓ Já concluído' : ('✓ Marcar ' + servico + ' como concluído');
-    btn.onclick = async ()=>{
-      const confirmado = confirm('Confirma que o serviço de ' + servico + ' na escola "' + row.local + '" foi realmente concluído?\n\nSó o SEMED pode desfazer essa marcação depois.');
-      if(!confirmado) return;
-      btn.disabled = true;
-      btn.textContent = 'Enviando...';
-      try{
-        await postToScript('marcar-concluido', {zona: row.zona, local: row.local, campo});
-        closeModal();
-        await refreshAllData();
-      }catch(e){
-        btn.disabled = false;
-        btn.textContent = 'Erro — tentar de novo';
-      }
-    };
-  }
-  if(IS_READONLY){
-    acBtn.style.display = 'none';
-    predBtn.style.display = 'none';
-  } else {
-    acBtn.style.display = '';
-    predBtn.style.display = '';
-    wireConcludeBtn(acBtn, 'ac', isDone(row.ac_status));
-    wireConcludeBtn(predBtn, 'pred', isDone(row.pred_status));
-  }
+  renderServicoModal('ac');
+  renderServicoModal('pred');
 
   const itemsBox = document.getElementById('modalItems');
   if(pdf && pdf.items && pdf.items.length){
@@ -2377,6 +2526,11 @@ function demandaLabel(r){
   if(r.demanda_pdf) return 'Com demanda (só PDF)';
   return 'Sem demanda';
 }
+// com checklist: "[x] item feito | [ ] item pendente"
+function solicitacaoCSV(r, campo){
+  if(semDemandaStatus(r[campo + '_status'])) return r[campo + '_sol'] || '';
+  return itensServico(r, campo).map(i=> (i.ok ? '[x] ' : '[ ] ') + i.t).join(' | ');
+}
 function exportCSV(){
   const header = ['Zona (Excel)','Nº','Escola','Demanda (Excel)','Demanda (PDF)','Demanda (final)',
     'Status Ar-condicionado','Empresa Ar-condicionado','Solicitação Ar-condicionado (planilha)',
@@ -2391,8 +2545,8 @@ function exportCSV(){
         r.demanda_planilha ? 'Sim' : 'Não',
         r.demanda_pdf ? 'Sim' : 'Não',
         demandaLabel(r),
-        r.ac_status, r.ac_emp||'', r.ac_sol||'',
-        r.pred_status, r.pred_emp||'', r.pred_sol||'',
+        r.ac_status, r.ac_emp||'', solicitacaoCSV(r,'ac'),
+        r.pred_status, r.pred_emp||'', solicitacaoCSV(r,'pred'),
         r.crit_elet,
         pdf && pdf.items && pdf.items.length ? pdf.items.join(' | ') : ''
       ].map(csvEscape).join(';'));
@@ -2436,15 +2590,104 @@ const editForm = {
   imovel: document.getElementById('ef_imovel'),
   acStatus: document.getElementById('ef_ac_status'),
   acEmp: document.getElementById('ef_ac_emp'),
-  acSol: document.getElementById('ef_ac_sol'),
   predStatus: document.getElementById('ef_pred_status'),
   predEmp: document.getElementById('ef_pred_emp'),
-  predSol: document.getElementById('ef_pred_sol'),
   crit: document.getElementById('ef_crit'),
   lat: document.getElementById('ef_lat'),
   lon: document.getElementById('ef_lon'),
   secoes: document.getElementById('ef_secoes'),
 };
+
+// ---- Checklist no formulário: uma linha por item (caixinha + texto + remover) ----
+const selStatusForm = campo => campo==='ac' ? editForm.acStatus : editForm.predStatus;
+const caixaItensForm = campo => document.getElementById('ef_' + campo + '_itens');
+
+function montarChecklistForm(campo, itens){
+  const caixa = caixaItensForm(campo);
+  caixa.innerHTML = '';
+  itens.forEach(i=> caixa.appendChild(linhaItemForm(campo, i.t, i.ok)));
+  atualizarChecklistForm(campo);
+}
+
+function linhaItemForm(campo, texto, ok){
+  const linha = document.createElement('div');
+  linha.className = 'ck-edit-row';
+  linha.innerHTML = '<input type="checkbox" title="Item feito">' +
+    '<input type="text" placeholder="ex: Trocar 2 lâmpadas do corredor">' +
+    '<button type="button" class="ck-del" title="Remover item" aria-label="Remover item">✕</button>';
+  const [cb, txt, del] = linha.children;
+  cb.checked = !!ok;
+  txt.value = texto || '';
+  cb.addEventListener('change', ()=> atualizarChecklistForm(campo));
+  txt.addEventListener('input', ()=> atualizarChecklistForm(campo));
+  // Enter cria o próximo item logo abaixo
+  txt.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    const nova = linhaItemForm(campo, '', false);
+    linha.after(nova);
+    nova.children[1].focus();
+    atualizarChecklistForm(campo);
+  });
+  // colar uma lista (várias linhas) vira vários itens
+  txt.addEventListener('paste', (e)=>{
+    const partes = textoEmItens((e.clipboardData || window.clipboardData).getData('text'));
+    if(partes.length < 2) return;
+    e.preventDefault();
+    if(!txt.value.trim()) txt.value = partes.shift();
+    let ultima = linha;
+    partes.forEach(p=>{ const nova = linhaItemForm(campo, p, false); ultima.after(nova); ultima = nova; });
+    atualizarChecklistForm(campo);
+  });
+  del.addEventListener('click', ()=>{ linha.remove(); atualizarChecklistForm(campo); });
+  return linha;
+}
+
+function itensDoForm(campo){
+  return Array.from(caixaItensForm(campo).children)
+    .map(l=> ({ t: l.children[1].value.trim(), ok: l.children[0].checked }))
+    .filter(i=> i.t);
+}
+
+// o status acompanha os itens: todos marcados = concluído; alguns = em andamento.
+// Os status que não combinam com os itens ficam desabilitados no seletor.
+function atualizarChecklistForm(campo){
+  const sel = selStatusForm(campo);
+  const itens = itensDoForm(campo);
+  const n = itens.length, k = itens.filter(i=> i.ok).length;
+  const semDem = semDemandaStatus(sel.value);
+  if(!semDem){
+    const s = statusPelosItens(campo, itens, sel.value);
+    if(s !== sel.value) sel.value = s;
+  }
+  Array.from(sel.options).forEach(o=>{
+    o.disabled = isPending(o.value) && n > 0 && (k === n || (k > 0 && o.value !== 'EM ANDAMENTO'));
+  });
+  caixaItensForm(campo).querySelectorAll('input[type="checkbox"]').forEach(cb=> cb.disabled = semDem);
+  document.getElementById('ef_' + campo + '_hint').textContent =
+    !n ? 'Nenhum item. Use "+ Adicionar item" ou cole uma lista (um item por linha).'
+    : semDem ? 'Sem demanda: os itens ficam só como anotação. Escolha um status para marcar os itens.'
+    : k + ' de ' + n + (n===1 ? ' item feito' : ' itens feitos') + ' — o status acompanha o checklist (todos marcados = concluído).';
+}
+
+document.querySelectorAll('.ck-add').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const campo = b.dataset.campo;
+    const sel = selStatusForm(campo);
+    if(semDemandaStatus(sel.value)) sel.value = 'ENCAMINHADO'; // item novo = tem demanda
+    const nova = linhaItemForm(campo, '', false);
+    caixaItensForm(campo).appendChild(nova);
+    nova.children[1].focus();
+    atualizarChecklistForm(campo);
+  });
+});
+['ac', 'pred'].forEach(campo=>{
+  selStatusForm(campo).addEventListener('change', ()=>{
+    // escolher "concluído" marca todos os itens
+    if(isDone(selStatusForm(campo).value)) caixaItensForm(campo).querySelectorAll('input[type="checkbox"]').forEach(cb=> cb.checked = true);
+    atualizarChecklistForm(campo);
+  });
+});
 
 function openEditModal(row){
   document.getElementById('editFormError').style.display = 'none';
@@ -2464,10 +2707,8 @@ function openEditModal(row){
     editForm.imovel.value = row.imovel || '';
     editForm.acStatus.value = row.ac_status || 'Não informado';
     editForm.acEmp.value = row.ac_emp || '';
-    editForm.acSol.value = row.ac_sol || '';
     editForm.predStatus.value = row.pred_status || 'Não informado';
     editForm.predEmp.value = row.pred_emp || '';
-    editForm.predSol.value = row.pred_sol || '';
     editForm.crit.value = row.crit_elet || '-';
     editForm.lat.value = row.lat!=null ? row.lat : '';
     editForm.lon.value = row.lon!=null ? row.lon : '';
@@ -2481,6 +2722,8 @@ function openEditModal(row){
     editForm.predStatus.value = 'Não informado';
     editForm.crit.value = '-';
   }
+  montarChecklistForm('ac', row ? itensServico(row, 'ac') : []);
+  montarChecklistForm('pred', row ? itensServico(row, 'pred') : []);
   editModalOverlay.classList.add('open');
 }
 function closeEditModal(){
@@ -2509,10 +2752,12 @@ document.getElementById('editFormSubmit').onclick = async ()=>{
     imovel: editForm.imovel.value.trim() || null,
     ac_status: editForm.acStatus.value,
     ac_emp: editForm.acEmp.value.trim() || null,
-    ac_sol: editForm.acSol.value.trim() || null,
+    ac_itens: itensDoForm('ac'),
+    ac_sol: itensDoForm('ac').map(i=> i.t).join('\n') || null,
     pred_status: editForm.predStatus.value,
     pred_emp: editForm.predEmp.value.trim() || null,
-    pred_sol: editForm.predSol.value.trim() || null,
+    pred_itens: itensDoForm('pred'),
+    pred_sol: itensDoForm('pred').map(i=> i.t).join('\n') || null,
     crit_elet: editForm.crit.value,
     lat: editForm.lat.value.trim() || null,
     lon: editForm.lon.value.trim() || null,

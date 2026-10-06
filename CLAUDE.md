@@ -26,9 +26,19 @@ Responda sempre em português.
 - Quando uma mudança mexer nos dois lados, avise que o Apps Script tem que ser atualizado **antes** do HTML.
 - Hospedar o site pelo próprio Apps Script (HtmlService) foi tentado e não funcionou; não voltar para essa opção.
 
-## Planilha — aba Página1 (21 colunas, A→U)
+## Planilha — aba Página1 (21 colunas, A→U, + 2 do checklist)
 
 `id, zona, n, ddz, imovel, local, ac_sol, ac_emp, ac_status, pred_sol, crit_elet, pred_emp, pred_status, lat, lon, sigeam, demanda_planilha, demanda_pdf, demanda_final, pdf_json, secoes`
+
+Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, ok, por, em}]`). O Apps Script acha essas duas colunas pelo nome do cabeçalho e cria sozinho na primeira vez que precisar.
+
+### Checklist da solicitação (AC e Predial)
+
+- A solicitação é uma lista de itens que podem ser finalizados um a um (detalhe da escola e formulário de editar). Com checklist, `ac_sol`/`pred_sol` é só a cópia dos itens, um por linha — edite pelo site, não direto na planilha.
+- Escola sem checklist gravado: cada linha da solicitação conta como um item (marcadores `* - •` no começo são tirados), todos no estado do serviço. A regra existe igual no `index.html` (`textoEmItens`, `itensServico`) e no `Code.gs` (`textoEmItens_`, `itensAtuais_`); mudar sempre nos dois, senão a marcação de item é recusada ("A lista de itens mudou").
+- O status segue os itens (só quando o serviço tem demanda): todos feitos = `CONCLUÍDO`/`FINALIZADO`; alguns = `EM ANDAMENTO`; nenhum = continua pendente. Mesma função nos dois lados (`statusPelosItens`).
+- Quem marca: o ADM marca e desmarca qualquer item; a empresa só marca (não desmarca) itens do serviço dela. Cada item marcado guarda quem e quando (`por`, `em`, horário de Manaus).
+- `escola-salvar` não mexe em `sigeam`, `demanda_pdf` e `pdf_json` de escola que já existe (antes eles eram apagados a cada edição).
 
 - Existem linhas em branco de propósito (sobras de fusões de duplicatas). O sistema ignora linhas sem `local`; qualquer contagem deve fazer o mesmo.
 - Cerca de 257 escolas ativas (o número muda quando o ADM adiciona/exclui).
@@ -62,7 +72,7 @@ Responda sempre em português.
 ## Endpoints do Apps Script
 
 - `GET ?session=TOKEN` → dados agrupados por zona (filtrados por empresa)
-- `POST` com `{action, session, ...}`: `login`, `marcar-concluido`, `desmarcar-concluido` (admin), `escola-salvar` (admin), `escola-excluir` (admin), `chamados-listar` (inclusive consulta), `chamado-salvar` (admin), `chamado-status` (admin, ou a empresa do chamado — ver regra acima), `chamado-editar` (admin), `chamado-excluir` (admin)
+- `POST` com `{action, session, ...}`: `login`, `marcar-concluido` (marca também todos os itens), `desmarcar-concluido` (admin; desmarca os itens), `item-marcar` (um item do checklist; `{zona, local, campo, idx, t, ok}`), `escola-salvar` (admin; recebe `ac_itens`/`pred_itens`), `escola-excluir` (admin), `chamados-listar` (inclusive consulta), `chamado-salvar` (admin), `chamado-status` (admin, ou a empresa do chamado — ver regra acima), `chamado-editar` (admin), `chamado-excluir` (admin)
 - O front usa `Content-Type: text/plain` no POST de propósito, para evitar o preflight CORS que o Apps Script não responde.
 - Sessões ficam no CacheService por 6 horas.
 
