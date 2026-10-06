@@ -212,6 +212,11 @@
   .ck-del:hover{ color:var(--danger); background:var(--line); }
   .ck-add{ padding:6px 12px; border-radius:6px; border:1px dashed var(--accent-2); background:transparent; color:var(--accent-2); font-weight:600; font-size:0.8rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
   .ck-add:hover{ background:var(--accent-2); color:#fff; }
+  .modal-box .obs{ margin-top:12px; padding:8px 10px; border-radius:6px; background:var(--paper-2); border:1px solid var(--line); font-size:0.84rem; line-height:1.4; white-space:pre-line; }
+  .modal-box .obs:empty{ display:none; }
+  .modal-box .obs .obs-k{ display:block; font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.7rem; font-weight:650; color:var(--muted); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:3px; white-space:normal; }
+  .ck-mov{ flex:none; background:none; border:1px solid var(--line); color:var(--muted); cursor:pointer; font-size:0.72rem; font-weight:600; line-height:1; padding:6px 7px; border-radius:4px; font-family:-apple-system,"Segoe UI",sans-serif; white-space:nowrap; }
+  .ck-mov:hover{ color:var(--amber); border-color:var(--amber); }
   .ck-hint{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.74rem; color:var(--muted); margin-top:6px; line-height:1.4; }
 
   /* ---- Responsivo: mobile/tablet vira "cartões" em vez de tabela ---- */
@@ -1168,7 +1173,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <select id="empFilterSelect">
       <option value="">Todas as empresas</option>
     </select>
-    <button class="exportbtn" id="exportBtn">Exportar tabela completa (CSV)</button>
+    <button class="exportbtn" id="exportBtn">Exportar CSV</button>
     <button class="addschool-btn" id="addSchoolBtn" style="display:none;">+ Adicionar escola</button>
   </div>
   <div class="chips" id="activeChips"></div>
@@ -1210,6 +1215,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="emp" id="modalAcEmp"></div>
         <div class="sol" id="modalAcSol"></div>
         <button class="conclude-btn" id="modalAcConclude">✓ Marcar AC como concluído</button>
+        <div class="obs" id="modalAcObs"></div>
       </div>
       <div class="modal-box" id="modalPredBox">
         <div class="k">Predial</div>
@@ -1217,6 +1223,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="emp" id="modalPredEmp"></div>
         <div class="sol" id="modalPredSol"></div>
         <button class="conclude-btn" id="modalPredConclude">✓ Marcar Predial como concluído</button>
+        <div class="obs" id="modalPredObs"></div>
       </div>
     </div>
     <p class="sectiontitle">Itens registrados na vistoria</p>
@@ -1259,6 +1266,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="ck-add" data-campo="ac">+ Adicionar item</button>
       <div class="ck-hint" id="ef_ac_hint"></div>
     </div>
+    <div class="field"><label for="ef_ac_obs">Observações — não impactam o pleito</label><textarea id="ef_ac_obs" placeholder="ex: trocar o ar da sala dos professores (depois da eleição)"></textarea></div>
 
     <div class="form-section-title">Predial</div>
     <div class="field-row">
@@ -1278,6 +1286,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="ck-add" data-campo="pred">+ Adicionar item</button>
       <div class="ck-hint" id="ef_pred_hint"></div>
     </div>
+    <div class="field"><label for="ef_pred_obs">Observações — não impactam o pleito</label><textarea id="ef_pred_obs" placeholder="ex: pintura da quadra (depois da eleição)"></textarea></div>
 
     <div class="form-section-title">Outros dados</div>
     <div class="field-row">
@@ -2190,6 +2199,10 @@ function renderDetail(skipMap){
   rows = sortRows(rows);
   lastRenderedRows = rows;
   document.getElementById('listCount').textContent = rows.length + ' escola(s) listada(s)';
+  // o CSV sai com o que está na tabela: o botão diz quantas escolas vão
+  const exportBtn = document.getElementById('exportBtn');
+  exportBtn.textContent = 'Exportar CSV (' + rows.length + (rows.length===1 ? ' escola)' : ' escolas)');
+  exportBtn.title = 'Exporta as escolas listadas na tabela, com os filtros e a busca aplicados';
   document.getElementById('detailTable').innerHTML = rows.map((r,i)=>{
     const acIsMine = !MY_COMPANY || r.ac_emp === MY_COMPANY;
     const predIsMine = !MY_COMPANY || r.pred_emp === MY_COMPANY;
@@ -2250,6 +2263,9 @@ function renderServicoModal(campo){
   const solEl = document.getElementById(P + 'Sol');
   const btn = document.getElementById(P + 'Conclude');
   const itens = semDemandaStatus(status) ? [] : itensServico(row, campo);
+  // observações: demandas fora do pleito (não entram no checklist nem no status)
+  const obs = String(row[campo + '_obs'] || '').trim();
+  document.getElementById(P + 'Obs').innerHTML = obs ? '<span class="obs-k">Observações — não impactam o pleito</span>' + escapeHtml(obs) : '';
 
   if(!itens.length){
     // sem demanda ou sem solicitação escrita: texto e botão de sempre
@@ -2512,7 +2528,8 @@ empFilterEl.addEventListener('change', (e)=>{
 });
 
 // =====================================================================
-// EXPORTAÇÃO — CSV com todas as escolas de todas as zonas (ignora filtros)
+// EXPORTAÇÃO — CSV com as escolas listadas na tabela (respeita filtros, busca e
+// o modo Chamados); sem filtro nenhum, sai a planilha inteira
 // =====================================================================
 function csvEscape(v){
   if(v===null || v===undefined) return '';
@@ -2533,31 +2550,32 @@ function solicitacaoCSV(r, campo){
 }
 function exportCSV(){
   const header = ['Zona (Excel)','Nº','Escola','Demanda (Excel)','Demanda (PDF)','Demanda (final)',
-    'Status Ar-condicionado','Empresa Ar-condicionado','Solicitação Ar-condicionado (planilha)',
-    'Status Predial','Empresa Predial','Solicitação Predial (planilha)','Criticidade elétrica',
+    'Status Ar-condicionado','Empresa Ar-condicionado','Solicitação Ar-condicionado (planilha)','Observações Ar-condicionado (não impactam o pleito)',
+    'Status Predial','Empresa Predial','Solicitação Predial (planilha)','Observações Predial (não impactam o pleito)','Criticidade elétrica',
     'Detalhes da vistoria (PDF)'];
   const lines = [header.map(csvEscape).join(';')];
-  zoneNames.forEach(z=>{
-    zonas[z].forEach(r=>{
-      const pdf = r.pdf;
-      lines.push([
-        z, r.n, r.local,
-        r.demanda_planilha ? 'Sim' : 'Não',
-        r.demanda_pdf ? 'Sim' : 'Não',
-        demandaLabel(r),
-        r.ac_status, r.ac_emp||'', solicitacaoCSV(r,'ac'),
-        r.pred_status, r.pred_emp||'', solicitacaoCSV(r,'pred'),
-        r.crit_elet,
-        pdf && pdf.items && pdf.items.length ? pdf.items.join(' | ') : ''
-      ].map(csvEscape).join(';'));
-    });
+  const rows = lastRenderedRows; // exatamente o que a tabela está mostrando, na mesma ordem
+  rows.forEach(r=>{
+    const pdf = r.pdf;
+    lines.push([
+      r.zona, r.n, r.local,
+      r.demanda_planilha ? 'Sim' : 'Não',
+      r.demanda_pdf ? 'Sim' : 'Não',
+      demandaLabel(r),
+      r.ac_status, r.ac_emp||'', solicitacaoCSV(r,'ac'), (r.ac_obs||'').replace(/\r?\n/g, ' | '),
+      r.pred_status, r.pred_emp||'', solicitacaoCSV(r,'pred'), (r.pred_obs||'').replace(/\r?\n/g, ' | '),
+      r.crit_elet,
+      pdf && pdf.items && pdf.items.length ? pdf.items.join(' | ') : ''
+    ].map(csvEscape).join(';'));
   });
+  const total = Object.values(zonas).reduce((n, l)=> n + l.length, 0);
+  const completo = rows.length === total;
   const csv = '\uFEFF' + lines.join('\r\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'plano_trabalho_escolas_completo.csv';
+  a.download = completo ? 'plano_trabalho_escolas_completo.csv' : 'plano_trabalho_escolas_filtrado.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -2590,8 +2608,10 @@ const editForm = {
   imovel: document.getElementById('ef_imovel'),
   acStatus: document.getElementById('ef_ac_status'),
   acEmp: document.getElementById('ef_ac_emp'),
+  acObs: document.getElementById('ef_ac_obs'),
   predStatus: document.getElementById('ef_pred_status'),
   predEmp: document.getElementById('ef_pred_emp'),
+  predObs: document.getElementById('ef_pred_obs'),
   crit: document.getElementById('ef_crit'),
   lat: document.getElementById('ef_lat'),
   lon: document.getElementById('ef_lon'),
@@ -2614,8 +2634,9 @@ function linhaItemForm(campo, texto, ok){
   linha.className = 'ck-edit-row';
   linha.innerHTML = '<input type="checkbox" title="Item feito">' +
     '<input type="text" placeholder="ex: Trocar 2 lâmpadas do corredor">' +
+    '<button type="button" class="ck-mov" title="Mover para Observações (não impacta o pleito)">↓ Obs.</button>' +
     '<button type="button" class="ck-del" title="Remover item" aria-label="Remover item">✕</button>';
-  const [cb, txt, del] = linha.children;
+  const [cb, txt, mov, del] = linha.children;
   cb.checked = !!ok;
   txt.value = texto || '';
   cb.addEventListener('change', ()=> atualizarChecklistForm(campo));
@@ -2640,6 +2661,14 @@ function linhaItemForm(campo, texto, ok){
     atualizarChecklistForm(campo);
   });
   del.addEventListener('click', ()=>{ linha.remove(); atualizarChecklistForm(campo); });
+  // tira o item do checklist e manda o texto pras Observações (fora do pleito)
+  mov.addEventListener('click', ()=>{
+    const t = txt.value.trim();
+    const obs = campo==='ac' ? editForm.acObs : editForm.predObs;
+    if(t) obs.value = obs.value.trim() ? obs.value.replace(/\s+$/, '') + '\n' + t : t;
+    linha.remove();
+    atualizarChecklistForm(campo);
+  });
   return linha;
 }
 
@@ -2707,8 +2736,10 @@ function openEditModal(row){
     editForm.imovel.value = row.imovel || '';
     editForm.acStatus.value = row.ac_status || 'Não informado';
     editForm.acEmp.value = row.ac_emp || '';
+    editForm.acObs.value = row.ac_obs || '';
     editForm.predStatus.value = row.pred_status || 'Não informado';
     editForm.predEmp.value = row.pred_emp || '';
+    editForm.predObs.value = row.pred_obs || '';
     editForm.crit.value = row.crit_elet || '-';
     editForm.lat.value = row.lat!=null ? row.lat : '';
     editForm.lon.value = row.lon!=null ? row.lon : '';
@@ -2754,10 +2785,12 @@ document.getElementById('editFormSubmit').onclick = async ()=>{
     ac_emp: editForm.acEmp.value.trim() || null,
     ac_itens: itensDoForm('ac'),
     ac_sol: itensDoForm('ac').map(i=> i.t).join('\n') || null,
+    ac_obs: editForm.acObs.value.trim(),
     pred_status: editForm.predStatus.value,
     pred_emp: editForm.predEmp.value.trim() || null,
     pred_itens: itensDoForm('pred'),
     pred_sol: itensDoForm('pred').map(i=> i.t).join('\n') || null,
+    pred_obs: editForm.predObs.value.trim(),
     crit_elet: editForm.crit.value,
     lat: editForm.lat.value.trim() || null,
     lon: editForm.lon.value.trim() || null,

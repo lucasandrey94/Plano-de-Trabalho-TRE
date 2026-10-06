@@ -30,7 +30,7 @@ Responda sempre em português.
 
 `id, zona, n, ddz, imovel, local, ac_sol, ac_emp, ac_status, pred_sol, crit_elet, pred_emp, pred_status, lat, lon, sigeam, demanda_planilha, demanda_pdf, demanda_final, pdf_json, secoes`
 
-Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, ok, por, em}]`). O Apps Script acha essas duas colunas pelo nome do cabeçalho e cria sozinho na primeira vez que precisar.
+Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, ok, por, em}]`) e `ac_obs` e `pred_obs` (observações: demandas que não impactam o pleito, texto livre — não entram no checklist, no status nem na contagem de demandas). O Apps Script acha essas colunas pelo nome do cabeçalho e cria sozinho na primeira vez que precisar.
 
 ### Checklist da solicitação (AC e Predial)
 
@@ -79,6 +79,7 @@ Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, 
 ## Convenções do front (index.html)
 
 - Atualização automática: escolas a cada 5 minutos (`refreshAllData(true)`); chamados a cada 1 minuto com a página visível e também na hora em que a pessoa volta pro site/app (`refreshChamados(true)`). Compara com o snapshot anterior e só redesenha se algo mudou, sem animação, sem perder filtros, busca ou posição da tela.
+- Exportar CSV: sai o que a tabela está mostrando (filtros, busca e modo Chamados valem); o botão mostra quantas escolas vão.
 - Depois de salvar, concluir ou excluir: chamar `refreshAllData()` / `refreshChamados()`. **Não usar `location.reload()`** (perde filtros) — a única exceção é o botão de sair.
 - Ao abrir modal, resetar o estado do botão de salvar (um bug antigo deixava "Salvando..." preso).
 - Popup do mapa aberto adia o redesenho do mapa até fechar.
