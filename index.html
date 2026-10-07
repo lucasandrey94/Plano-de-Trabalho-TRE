@@ -203,6 +203,14 @@
   .ck-item.travado input{ cursor:default; }
   .ck-item.ok .ck-t{ color:var(--muted); }
   .ck-meta{ display:block; font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.72rem; color:var(--accent-2); margin-top:1px; }
+  .ck-emp{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:10px; border:1px solid var(--amber); color:var(--amber); font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.68rem; font-weight:650; line-height:1.5; vertical-align:1px; white-space:nowrap; }
+  .field .ck-edit-row select{ flex:0 1 150px; width:auto; min-width:0; padding:7px 6px; font-size:0.8rem; }
+  /* celular: o texto do item ocupa a linha toda; empresa e botões vão pra linha de baixo */
+  @media (max-width: 560px){
+    .ck-edit-row{ flex-wrap:wrap; row-gap:6px; padding-bottom:6px; border-bottom:1px dashed var(--line); }
+    .field .ck-edit-row input[type="text"]{ flex:1 1 calc(100% - 30px); }
+    .field .ck-edit-row select{ flex:1 1 auto; margin-left:26px; }
+  }
   .ck-mini{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.72rem; color:var(--muted); margin-top:2px; }
   .ck-edit-row{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
   .field .ck-edit-row input[type="checkbox"]{ width:18px; height:18px; padding:0; margin:0; flex:none; accent-color:var(--accent-2); cursor:pointer; }
@@ -1489,9 +1497,25 @@ function textoEmItens(txt){
 }
 function itensServico(row, campo){
   const salvos = row[campo + '_itens'];
-  if(Array.isArray(salvos) && salvos.length) return salvos.map(i=>({ t:String(i.t||''), ok:!!i.ok, por:i.por||'', em:i.em||'' }));
+  // emp = empresa direcionada pra aquele item (vazio = a do serviço);
+  // i = posição na lista completa (vem na visão da empresa de apoio)
+  if(Array.isArray(salvos) && salvos.length) return salvos.map(i=>({ t:String(i.t||''), ok:!!i.ok, por:i.por||'', em:i.em||'', emp:i.emp||'', i:i.i }));
   const feito = isDone(row[campo + '_status']);
-  return textoEmItens(row[campo + '_sol']).map(t=>({ t, ok:feito, por:'', em:'' }));
+  return textoEmItens(row[campo + '_sol']).map(t=>({ t, ok:feito, por:'', em:'', emp:'' }));
+}
+// empresas de apoio de um serviço: as que têm itens direcionados a elas
+function empresasApoio(row, campo){
+  if(semDemandaStatus(row[campo + '_status'])) return [];
+  const dono = row[campo + '_emp'];
+  return Array.from(new Set(itensServico(row, campo).map(i=> i.emp).filter(e=> e && e !== dono)));
+}
+// "Empresa (AC)" na tabela e no detalhe: a do serviço + as de apoio
+function empresaServicoTexto(row, campo){
+  const emp = row[campo + '_emp'], resp = row[campo + '_resp'];
+  if(resp) return 'Empresa: ' + emp + ' — itens direcionados à sua empresa (serviço da ' + resp + ')';
+  if(!emp) return 'Empresa não informada';
+  const apoio = empresasApoio(row, campo);
+  return 'Empresa: ' + emp + (apoio.length ? ' · apoio: ' + apoio.join(', ') : '');
 }
 // todos feitos = concluído; alguns = em andamento; nenhum = continua pendente
 function statusPelosItens(campo, itens, atual){
@@ -1501,6 +1525,16 @@ function statusPelosItens(campo, itens, atual){
   if(feitos > 0) return 'EM ANDAMENTO';
   if(isPending(atual)) return atual;
   return isDone(atual) ? 'EM ANDAMENTO' : 'ENCAMINHADO';
+}
+// embaixo da empresa na tabela: "apoio: MCA" (ADM e dona) ou "serviço da PAIVA" (empresa de apoio)
+function empApoioMini(r, campo){
+  if(r[campo + '_resp']) return `<div class="ck-mini">serviço da ${escapeHtml(r[campo + '_resp'])}</div>`;
+  const apoio = empresasApoio(r, campo);
+  return apoio.length ? `<div class="ck-mini">apoio: ${escapeHtml(apoio.join(', '))}</div>` : '';
+}
+// empresa com itens direcionados a ela nessa escola (filtro de Empresa)
+function temItensDirecionados(r, emp){
+  return ['ac','pred'].some(c=> empresasApoio(r, c).includes(emp));
 }
 // "2/5 itens" embaixo do status na tabela (só com 2 itens ou mais)
 function ckMini(r, campo){
@@ -1907,7 +1941,8 @@ function getRows(){
       ? (r.ac_emp===state.emp && acHasDemand(r))
       : (r.pred_emp===state.emp && predHasDemand(r)));
   } else {
-    if(state.emp) rows = rows.filter(r=> (r.ac_emp===state.emp && acHasDemand(r)) || (r.pred_emp===state.emp && predHasDemand(r)));
+    // inclui as escolas em que a empresa só tem itens direcionados (apoio)
+    if(state.emp) rows = rows.filter(r=> (r.ac_emp===state.emp && acHasDemand(r)) || (r.pred_emp===state.emp && predHasDemand(r)) || temItensDirecionados(r, state.emp));
     if(campo==='ac') rows = rows.filter(r=> acHasDemand(r));
     if(campo==='pred') rows = rows.filter(r=> predHasDemand(r));
   }
@@ -2211,9 +2246,9 @@ function renderDetail(skipMap){
       <td data-label="Nº">${r.n!=null?r.n:''}</td>
       <td data-label="Escola"><button class="escolabtn" data-i="${i}">${r.local}</button> <span class="tag none zonatag-inline">Zona ${r.zona}${r.secoes!=null?' - '+r.secoes+' Seções':''}</span> ${r.lat && r.lon ? `<a class="pin-link" href="https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}" target="_blank" rel="noopener" title="Abrir no Google Maps">📍</a>` : ''}</td>
       <td data-label="Demanda (Excel · PDF)">${demandaTag(r)}</td>
-      <td data-label="Empresa (AC)">${acIsMine ? (r.ac_emp || '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
+      <td data-label="Empresa (AC)">${acIsMine ? (r.ac_emp ? escapeHtml(r.ac_emp) + empApoioMini(r,'ac') : '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
       <td data-label="Ar-condicionado">${acIsMine ? `<div class="statuscell" title="${r.ac_status.replace(/"/g,'&quot;')}">${r.ac_status}</div>${ckMini(r,'ac')}` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
-      <td data-label="Empresa (predial)">${predIsMine ? (r.pred_emp || '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
+      <td data-label="Empresa (predial)">${predIsMine ? (r.pred_emp ? escapeHtml(r.pred_emp) + empApoioMini(r,'pred') : '<span class="tag none">—</span>') : '<span class="tag none">—</span>'}</td>
       <td data-label="Predial">${predIsMine ? `<div class="statuscell" title="${r.pred_status.replace(/"/g,'&quot;')}">${r.pred_status}</div>${ckMini(r,'pred')}` : '<span class="tag none">— não é da sua empresa —</span>'}</td>
       <td data-label="Criticidade elétrica">${critTag(r.crit_elet)}</td>
       ${IS_ADMIN ? `<td data-label="Ações" class="acoes-cell"><button class="ch-open-btn" data-i="${i}" title="Abrir chamado para esta escola"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 9h8"/><path d="M8 13h6"/><path d="M12.01 18.594l-4.01 2.406v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5"/><path d="M16 19h6"/><path d="M19 16v6"/></svg><span>Chamado</span></button><button class="rowaction-btn edit-btn" data-i="${i}" title="Editar">✎</button><button class="rowaction-btn del-btn" data-i="${i}" title="Excluir">🗑</button></td>` : ''}
@@ -2276,31 +2311,41 @@ function renderServicoModal(campo){
   }
 
   const pode = podeMarcarItens(row, campo);
+  const dono = row[campo + '_emp'];
   const salvando = !!ckSalvando && ckSalvando.row === row && ckSalvando.campo === campo;
   const feitos = itens.filter(i=> i.ok).length;
   solEl.innerHTML =
     `<div class="ck-prog"><div class="ck-bar"><span style="width:${Math.round(100 * feitos / itens.length)}%"></span></div>` +
     `<span>${salvando ? 'Salvando…' : feitos + ' de ' + itens.length + (itens.length===1 ? ' item' : ' itens')}</span></div>` +
     '<ul class="ck-list">' + itens.map((it, idx)=>{
+      // a empresa só dá baixa nos itens que ela executa (o do serviço dela, menos
+      // os direcionados a outra empresa) e não desmarca; o ADM mexe em todos
+      const executor = it.emp || dono;
+      const deOutra = !IS_ADMIN && executor !== MY_COMPANY;
       const soAdmDesmarca = it.ok && !IS_ADMIN;
-      const travado = !pode || salvando || soAdmDesmarca;
-      const dica = pode && soAdmDesmarca ? ' title="Só o ADM Geral pode desmarcar"' : '';
+      const travado = !pode || salvando || soAdmDesmarca || deOutra;
+      const dica = !pode ? '' : deOutra ? ` title="Item direcionado à ${escapeHtml(executor)}"`
+        : soAdmDesmarca ? ' title="Só o ADM Geral pode desmarcar"' : '';
+      const tagEmp = it.emp && it.emp !== dono ? `<span class="ck-emp">${escapeHtml(it.emp)}</span>` : '';
       const meta = it.ok && it.por ? `<span class="ck-meta">✓ ${escapeHtml(it.por)}${it.em ? ' · ' + escapeHtml(it.em) : ''}</span>` : '';
       return `<li><label class="ck-item${it.ok ? ' ok' : ''}${travado ? ' travado' : ''}"${dica}>` +
-        `<input type="checkbox" data-idx="${idx}"${it.ok ? ' checked' : ''}${travado ? ' disabled' : ''}>` +
-        `<span class="ck-t">${escapeHtml(it.t)}${meta}</span></label></li>`;
+        `<input type="checkbox" data-k="${idx}"${it.ok ? ' checked' : ''}${travado ? ' disabled' : ''}>` +
+        `<span class="ck-t">${escapeHtml(it.t)}${tagEmp}${meta}</span></label></li>`;
     }).join('') + '</ul>';
   solEl.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
-    cb.onchange = ()=> marcarItem(row, campo, Number(cb.dataset.idx), itens[Number(cb.dataset.idx)].t, cb.checked, cb);
+    const it = itens[Number(cb.dataset.k)];
+    // na visão da empresa de apoio, "i" é a posição do item na lista completa
+    cb.onchange = ()=> marcarItem(row, campo, it.i !== undefined ? it.i : Number(cb.dataset.k), it.t, cb.checked, cb);
   });
 
-  // atalho pra quando faltam 2 itens ou mais
-  const faltam = itens.length - feitos;
+  // atalho pra quando faltam 2 itens ou mais (só os que a pessoa pode marcar)
+  const faltam = itens.filter(i=> !i.ok && (IS_ADMIN || (i.emp || dono) === MY_COMPANY)).length;
   if(!pode || faltam < 2){ btn.style.display = 'none'; return; }
+  const deOutras = !IS_ADMIN && itens.some(i=> !i.ok && (i.emp || dono) !== MY_COMPANY);
   btn.style.display = '';
   btn.classList.remove('conclude-btn-undo');
   btn.disabled = salvando;
-  btn.textContent = '✓ Concluir os ' + faltam + ' itens que faltam';
+  btn.textContent = '✓ Concluir os ' + faltam + ' itens que faltam' + (deOutras ? ' (da sua empresa)' : '');
   btn.onclick = async ()=>{
     const confirmado = confirm('Marcar como feitos os ' + faltam + ' itens que faltam de ' + servico + ' na escola "' + row.local + '"?' +
       (IS_ADMIN ? '' : '\n\nSó o ADM Geral pode desmarcar depois.'));
@@ -2421,8 +2466,8 @@ function openModal(row){
   }
 
   modalRow = row;
-  document.getElementById('modalAcEmp').textContent = row.ac_emp ? 'Empresa: ' + row.ac_emp : 'Empresa não informada';
-  document.getElementById('modalPredEmp').textContent = row.pred_emp ? 'Empresa: ' + row.pred_emp : 'Empresa não informada';
+  document.getElementById('modalAcEmp').textContent = empresaServicoTexto(row, 'ac');
+  document.getElementById('modalPredEmp').textContent = empresaServicoTexto(row, 'pred');
 
   // se for login de empresa, essa escola só entrou na lista dela porque bate em
   // AC ou Predial (ou os dois) — esconde o lado que NÃO é dela, pra não mostrar
@@ -2515,9 +2560,12 @@ ddzFilterEl.addEventListener('change', (e)=>{
   renderChips(); renderDetail();
 });
 
-// popula o filtro de Empresa (reaproveita a mesma lista usada no gráfico/card)
+// popula o filtro de Empresa (reaproveita a mesma lista usada no gráfico/card,
+// mais as empresas que só têm itens direcionados a elas)
 const empFilterEl = document.getElementById('empFilterSelect');
-empNames.slice().sort((a,b)=> a.localeCompare(b,'pt-BR')).forEach(nome=>{
+const empsDoFiltro = new Set(empNames);
+Object.values(zonas).flat().forEach(r=> ['ac','pred'].forEach(c=> empresasApoio(r, c).forEach(e=> empsDoFiltro.add(e))));
+Array.from(empsDoFiltro).sort((a,b)=> a.localeCompare(b,'pt-BR')).forEach(nome=>{
   const opt = document.createElement('option');
   opt.value = nome; opt.textContent = nome;
   empFilterEl.appendChild(opt);
@@ -2546,7 +2594,8 @@ function demandaLabel(r){
 // com checklist: "[x] item feito | [ ] item pendente"
 function solicitacaoCSV(r, campo){
   if(semDemandaStatus(r[campo + '_status'])) return r[campo + '_sol'] || '';
-  return itensServico(r, campo).map(i=> (i.ok ? '[x] ' : '[ ] ') + i.t).join(' | ');
+  const dono = r[campo + '_emp'];
+  return itensServico(r, campo).map(i=> (i.ok ? '[x] ' : '[ ] ') + i.t + (i.emp && i.emp !== dono ? ' (' + i.emp + ')' : '')).join(' | ');
 }
 function exportCSV(){
   const header = ['Zona (Excel)','Nº','Escola','Demanda (Excel)','Demanda (PDF)','Demanda (final)',
@@ -2625,20 +2674,33 @@ const caixaItensForm = campo => document.getElementById('ef_' + campo + '_itens'
 function montarChecklistForm(campo, itens){
   const caixa = caixaItensForm(campo);
   caixa.innerHTML = '';
-  itens.forEach(i=> caixa.appendChild(linhaItemForm(campo, i.t, i.ok)));
+  itens.forEach(i=> caixa.appendChild(linhaItemForm(campo, i.t, i.ok, i.emp)));
   atualizarChecklistForm(campo);
 }
 
-function linhaItemForm(campo, texto, ok){
+// empresas que podem receber um item: as da lista dos chamados + as que já
+// aparecem na planilha (o nome tem que ser igual ao do login da empresa)
+function empresasParaItens(){
+  return Array.from(new Set([...CH_EMPRESAS, ...empNames])).sort((a,b)=> a.localeCompare(b,'pt-BR'));
+}
+
+function linhaItemForm(campo, texto, ok, emp){
   const linha = document.createElement('div');
   linha.className = 'ck-edit-row';
   linha.innerHTML = '<input type="checkbox" title="Item feito">' +
     '<input type="text" placeholder="ex: Trocar 2 lâmpadas do corredor">' +
+    '<select title="Empresa que executa este item (ela dá baixa no login dela)" aria-label="Empresa que executa o item"></select>' +
     '<button type="button" class="ck-mov" title="Mover para Observações (não impacta o pleito)">↓ Obs.</button>' +
     '<button type="button" class="ck-del" title="Remover item" aria-label="Remover item">✕</button>';
-  const [cb, txt, mov, del] = linha.children;
+  const [cb, txt, sel, mov, del] = linha.children;
   cb.checked = !!ok;
   txt.value = texto || '';
+  // vazio = a empresa do serviço; outra empresa = item direcionado (apoio)
+  const nomes = empresasParaItens();
+  if(emp && !nomes.includes(emp)) nomes.push(emp);
+  sel.innerHTML = '<option value="">Empresa do serviço</option>' +
+    nomes.map(n=> `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  sel.value = emp || '';
   cb.addEventListener('change', ()=> atualizarChecklistForm(campo));
   txt.addEventListener('input', ()=> atualizarChecklistForm(campo));
   // Enter cria o próximo item logo abaixo
@@ -2674,7 +2736,7 @@ function linhaItemForm(campo, texto, ok){
 
 function itensDoForm(campo){
   return Array.from(caixaItensForm(campo).children)
-    .map(l=> ({ t: l.children[1].value.trim(), ok: l.children[0].checked }))
+    .map(l=> ({ t: l.children[1].value.trim(), ok: l.children[0].checked, emp: l.children[2].value }))
     .filter(i=> i.t);
 }
 
