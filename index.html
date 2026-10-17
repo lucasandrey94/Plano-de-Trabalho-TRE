@@ -1175,6 +1175,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <option value="pred">Só Predial</option>
       <option value="chamados">Chamados</option>
     </select>
+    <select id="statusFilter" title="Status do serviço — vale para AC, Predial ou os dois, conforme o filtro ao lado">
+      <option value="">Todos os status</option>
+      <option value="pendente">Não concluídas (falta algo)</option>
+      <option value="encaminhado">Encaminhado (não iniciado)</option>
+      <option value="andamento">Em andamento</option>
+      <option value="concluido">Concluídas / finalizadas</option>
+    </select>
     <select id="ddzFilter">
       <option value="">Todos os distritos (DDZ)</option>
     </select>
@@ -1605,11 +1612,28 @@ Chart.register(barValueLabels);
 // =====================================================================
 // FILTER STATE shared between charts and the table
 // =====================================================================
-const state = { zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo:'both', ddz:null, search:'', sortKey:'demanda', sortDir:'desc' };
+const state = { zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo:'both', ddz:null, status:null, search:'', sortKey:'demanda', sortDir:'desc' };
 
 function syncDemandaSelect(){
   const sel = document.getElementById('demandaFilter');
   sel.value = state.demanda===true ? 'com' : (state.demanda===false ? 'sem' : 'todas');
+  document.getElementById('statusFilter').value = state.status || '';
+}
+
+// ---- Filtro de status (toolbar) ----
+// Olha os serviços com demanda da escola: só AC, só Predial ou os dois,
+// conforme o filtro "AC e Predial". "Não concluídas" = algum serviço ainda
+// pendente; "Concluídas" = todos os serviços com demanda concluídos.
+const STATUS_FILTRO_LABEL = { pendente:'não concluídas', encaminhado:'encaminhado (não iniciado)', andamento:'em andamento', concluido:'concluídas/finalizadas' };
+function passaFiltroStatus(r){
+  if(!state.status) return true;
+  const campos = state.campo==='ac' ? ['ac'] : (state.campo==='pred' ? ['pred'] : ['ac','pred']);
+  const sts = campos.map(c=> r[c + '_status']).filter(s=> !semDemandaStatus(s));
+  if(state.status==='pendente') return sts.some(s=> !isDone(s));
+  if(state.status==='encaminhado') return sts.includes('ENCAMINHADO');
+  if(state.status==='andamento') return sts.includes('EM ANDAMENTO');
+  if(state.status==='concluido') return sts.length > 0 && sts.every(isDone);
+  return true;
 }
 
 function setFilter(patch){
@@ -1646,7 +1670,7 @@ function clearAllFilters(){
   document.getElementById('empFilterSelect').value='';
   document.getElementById('chFiltroStatus').value='';
   document.getElementById('chFiltroEmp').value='';
-  setFilter({ zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo, ddz:null, search:'' });
+  setFilter({ zone:'TODAS', demanda:null, ac:null, pred:null, crit:null, emp:null, campo, ddz:null, status:null, search:'' });
 }
 
 // ---- Chart 1: escolas com demanda, por zona ----
@@ -1666,7 +1690,7 @@ const chartDemanda = new Chart(document.getElementById('chartDemanda'), {
       if(!elements.length) return;
       const el = elements[0];
       const zone = zoneNames[el.index];
-      setFilter({ zone, demanda:true, ac:null, pred:null, crit:null, emp:null });
+      setFilter({ zone, demanda:true, ac:null, pred:null, crit:null, emp:null, status:null });
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
   }
@@ -1705,7 +1729,7 @@ const chartAC = new Chart(document.getElementById('chartAC'), {
       const zone = zoneNames[el.index];
       const realValue = chartAC.data.datasets[el.datasetIndex].realValue;
       const acFilter = realValue==='CONCLUÍDO' ? DONE_MARKER : PENDING_MARKER;
-      setFilter({ zone, ac: acFilter, demanda:null, pred:null, crit:null, emp:null });
+      setFilter({ zone, ac: acFilter, demanda:null, pred:null, crit:null, emp:null, status:null });
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
   }
@@ -1735,7 +1759,7 @@ const chartPred = new Chart(document.getElementById('chartPred'), {
       const zone = zoneNames[el.index];
       const realValue = chartPred.data.datasets[el.datasetIndex].realValue;
       const predFilter = realValue==='CONCLUÍDO' ? DONE_MARKER : realValue;
-      setFilter({ zone, pred: predFilter, demanda:null, ac:null, crit:null, emp:null });
+      setFilter({ zone, pred: predFilter, demanda:null, ac:null, crit:null, emp:null, status:null });
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
   }
@@ -1764,7 +1788,7 @@ const chartCrit = new Chart(document.getElementById('chartCrit'), {
       const el = elements[0];
       const zone = zoneNames[el.index];
       const realValue = chartCrit.data.datasets[el.datasetIndex].realValue;
-      setFilter({ zone, crit: realValue, demanda:true, ac:null, pred:null, emp:null });
+      setFilter({ zone, crit: realValue, demanda:true, ac:null, pred:null, emp:null, status:null });
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; }
   }
@@ -1812,7 +1836,7 @@ function renderEmpProgressCard(){
     </div>
   `).join('');
   document.getElementById('empProgressList').querySelectorAll('.emp-row').forEach(row=>{
-    row.onclick = ()=> setFilter({ zone:'TODAS', emp: row.dataset.emp, campo:'both', demanda:null, ac:null, pred:null, crit:null });
+    row.onclick = ()=> setFilter({ zone:'TODAS', emp: row.dataset.emp, campo:'both', demanda:null, ac:null, pred:null, crit:null, status:null });
   });
   if(typeof atualizarResumoEmp==='function') atualizarResumoEmp();
 }
@@ -1844,6 +1868,7 @@ function renderChips(){
   // surgindo acima do mapa empurrava a tela pra baixo ao trocar de modo)
   if(state.campo==='ac' || state.campo==='pred') chips.push({key:'campo', label: state.campo==='ac' ? 'Só Ar-condicionado' : 'Só Predial'});
   if(state.ddz) chips.push({key:'ddz', label:'Distrito: '+state.ddz});
+  if(state.status) chips.push({key:'status', label:'Status: '+STATUS_FILTRO_LABEL[state.status]});
   if(state.campo==='chamados'){
     // no modo Chamados os filtros do card também valem pra tabela e mapa
     const chSt = document.getElementById('chFiltroStatus').value;
@@ -1907,7 +1932,7 @@ function renderThead(){
 // filtros que dizem respeito à escola em si (zona, busca, demanda, status AC/
 // predial, criticidade, distrito) — valem pra tabela e pros chamados
 function filtrosDeEscolaAtivos(){
-  return state.zone!=='TODAS' || !!state.search || state.demanda!==null || !!state.ac || !!state.pred || !!state.crit || !!state.ddz;
+  return state.zone!=='TODAS' || !!state.search || state.demanda!==null || !!state.ac || !!state.pred || !!state.crit || !!state.ddz || !!state.status;
 }
 function getRowsEscola(){
   let rows = [];
@@ -1928,6 +1953,7 @@ function getRowsEscola(){
   if(state.pred) rows = rows.filter(r=> state.pred===DONE_MARKER ? isDone(r.pred_status) : state.pred===PENDING_MARKER ? isPending(r.pred_status) : r.pred_status===state.pred);
   if(state.crit) rows = rows.filter(r=>r.crit_elet===state.crit);
   if(state.ddz) rows = rows.filter(r=> r.ddz===state.ddz);
+  if(state.status) rows = rows.filter(passaFiltroStatus);
   return rows;
 }
 
@@ -2037,7 +2063,7 @@ function initLeafletMap(){
 let ultimoEnquadramento = null;
 function enquadrarMapa(pontos){
   const val = id => (document.getElementById(id) || {}).value || '';
-  const chave = JSON.stringify([state.zone, state.search, state.demanda, state.ac, state.pred, state.crit, state.emp, state.campo, state.ddz,
+  const chave = JSON.stringify([state.zone, state.search, state.demanda, state.ac, state.pred, state.crit, state.emp, state.campo, state.ddz, state.status,
     val('chFiltroStatus'), val('chFiltroEmp'), chMostrarConcluidos]);
   const validos = pontos.filter(p => isFinite(+p[0]) && isFinite(+p[1]));
   if(chave === ultimoEnquadramento || !validos.length) return; // sem escolas: deixa o mapa onde está
@@ -2527,6 +2553,10 @@ document.getElementById('searchBox').addEventListener('keydown', (e)=>{
 document.getElementById('demandaFilter').addEventListener('change', (e)=>{
   const v = e.target.value;
   state.demanda = v==='com' ? true : (v==='sem' ? false : null);
+  renderChips(); renderDetail();
+});
+document.getElementById('statusFilter').addEventListener('change', (e)=>{
+  state.status = e.target.value || null;
   renderChips(); renderDetail();
 });
 document.getElementById('campoFilter').addEventListener('change', (e)=>{
