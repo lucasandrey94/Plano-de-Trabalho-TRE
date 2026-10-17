@@ -45,9 +45,12 @@ Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, 
 - Cerca de 257 escolas ativas (o número muda quando o ADM adiciona/exclui).
 - Escola nova recebe `id` e `n` = maior valor existente + 1.
 
-## Planilha — aba Chamados (12 colunas, todas texto)
+## Planilha — aba Chamados (13 colunas, todas texto)
 
-`id, data, zona, escola, secoes, secao, categoria, empresa, status, descricao, criado_por, atualizado_em`
+`id, data, zona, escola, secoes, secao, categoria, empresa, status, descricao, criado_por, atualizado_em, turno`
+
+- Turno da eleição: `1` = 1º turno (04/10/2026), `2` = 2º turno (25/10/2026). O ADM escolhe ao abrir/editar o chamado (padrão: o turno que está na tela; depois de 04/10, o 2º). Chamado sem turno gravado (aberto antes de existir a coluna M) conta pela data de abertura: até 24/10 = 1º, a partir de 25/10 = 2º — mesma regra no `Code.gs` (`turnoPelaData_`) e no `index.html` (`turnoDoChamado`). O cabeçalho `turno` é criado sozinho na coluna M.
+- No site, o seletor "1º turno · 2º turno · Todos" no título "Chamados" filtra lista, contadores, gráfico, o número da barra do topo e, no modo Chamados, tabela e mapa. Abre no turno atual. O texto do WhatsApp sai com "OPERAÇÃO ELEIÇÕES 2026 – 2º TURNO" e o card exportado mostra o turno.
 
 - Categorias: `Ar-condicionado`, `Predial`
 - Empresas: `PLATINA, CB BOTELHO, SEMED, ECOLIFE, MCA, MMGR, ENS, PAIVA, SELF, SUPLEX, AC CONSTRUÇÃO` (o nome tem que ser igual ao `company` da conta de login, senão a empresa não vê os chamados dela) — a lista `CH_EMPRESAS` existe igual no `index.html` e no `Code.gs`; mudar sempre nos dois (o Apps Script recusa empresa fora da lista).

@@ -345,6 +345,12 @@
   .ch-item-escola{ font-weight:600; font-size:0.9rem; }
   .ch-item-num{ color:var(--muted); font-weight:400; margin-right:6px; }
   .ch-item-meta{ color:var(--muted); font-size:0.8rem; margin-top:2px; }
+  /* seletor de turno no título "Chamados" */
+  .ch-turnos{ margin-left:auto; display:inline-flex; border:1px solid var(--line); border-radius:20px; overflow:hidden; font-size:0.8rem; font-weight:600; align-self:center; }
+  .ch-turnos button{ background:transparent; border:none; color:var(--muted); padding:5px 12px; cursor:pointer; font:inherit; white-space:nowrap; }
+  .ch-turnos button + button{ border-left:1px solid var(--line); }
+  .ch-turnos button:hover{ color:var(--ink); }
+  .ch-turnos button.on{ background:var(--accent); color:#fff; }
   .ch-item-desc{ font-size:0.86rem; margin-top:5px; line-height:1.4; white-space:pre-wrap; word-break:break-word; }
   .ch-item-side{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
   .ch-item-actions{ display:flex; gap:2px; }
@@ -1105,7 +1111,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <!-- Chamados: mesma largura dos gráficos abaixo, com a lista como card principal -->
 <section class="wide-section">
-  <h2>Chamados</h2>
+  <h2>Chamados
+    <span class="ch-turnos" role="group" aria-label="Turno da eleição">
+      <button type="button" data-turno="1">1º turno · 04/10</button><button type="button" data-turno="2">2º turno · 25/10</button><button type="button" data-turno="">Todos</button>
+    </span>
+  </h2>
   <div class="kb-grid ch-kb-grid" id="chKbGrid"></div>
   <div class="ch-grid" id="chamadosSection">
     <div class="ch-card ch-card-main">
@@ -1332,6 +1342,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="modal-meta">Descrição é obrigatória.</div>
     <div class="ch-school-box"><div class="nm" id="chEscola"></div><div class="mt" id="chEscolaMeta"></div></div>
     <div class="field-row">
+      <div class="field"><label for="chTurnoSel">Turno</label><select id="chTurnoSel" title="1º turno: 04/10 · 2º turno: 25/10"><option value="1">1º turno</option><option value="2">2º turno</option></select></div>
       <div class="field"><label for="chSecao">Seção</label><input type="text" id="chSecao" inputmode="numeric" placeholder="ex: 0412"></div>
       <div class="field"><label for="chCategoria">Categoria</label><select id="chCategoria"><option>Ar-condicionado</option><option>Predial</option></select></div>
     </div>
@@ -2064,7 +2075,7 @@ let ultimoEnquadramento = null;
 function enquadrarMapa(pontos){
   const val = id => (document.getElementById(id) || {}).value || '';
   const chave = JSON.stringify([state.zone, state.search, state.demanda, state.ac, state.pred, state.crit, state.emp, state.campo, state.ddz, state.status,
-    val('chFiltroStatus'), val('chFiltroEmp'), chMostrarConcluidos]);
+    val('chFiltroStatus'), val('chFiltroEmp'), chMostrarConcluidos, chTurno]);
   const validos = pontos.filter(p => isFinite(+p[0]) && isFinite(+p[1]));
   if(chave === ultimoEnquadramento || !validos.length) return; // sem escolas: deixa o mapa onde está
   const primeiraVez = ultimoEnquadramento === null;
@@ -2237,6 +2248,7 @@ function renderMapaChamados(){
     else {
       const semCoord = escolas.length - noMapa.length;
       el.textContent = escolas.length + (escolas.length===1 ? ' escola' : ' escolas') + ' com chamados'
+        + (chTurno ? ' no ' + CH_TURNO_NOME[chTurno] : '')
         + (semCoord ? ' (' + semCoord + ' sem coordenadas)' : '');
     }
     el.title = el.textContent; // o texto corta com "…" em tela estreita; o completo fica no passar do mouse
@@ -3000,6 +3012,38 @@ const chStatusCls = s => s==='Concluído' ? 'done' : (s==='Em andamento' ? 'prog
 // data + hora de abertura ("03/10/2026 18:13"); se a planilha só tiver a data, mostra só ela
 const chDataHora = c => { const [d, h] = String(c.data||'').trim().split(/\s+/); return h ? d + ' ' + h.slice(0, 5) : (d || ''); };
 
+// ---- Turno da eleição: '1' = 1º turno (04/10/2026), '2' = 2º turno (25/10/2026) ----
+const CH_TURNO_NOME = { '1':'1º turno', '2':'2º turno' };
+// chamado sem turno gravado: pela data de abertura (mesma regra do Code.gs)
+function turnoDoChamado(c){
+  if(c.turno === '1' || c.turno === '2') return c.turno;
+  const m = String(c.data||'').match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return m && (m[3] + m[2] + m[1]) >= '20261025' ? '2' : '1';
+}
+// depois do dia do 1º turno, o turno "atual" é o 2º
+function turnoAtualSite(){
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone:'America/Manaus', year:'numeric', month:'2-digit', day:'2-digit' })
+    .format(new Date()).replace(/-/g, '');
+  return hoje > '20261004' ? '2' : '1';
+}
+// turno escolhido no card ('' = todos): abre no turno atual e lembra a escolha nesta aba
+let chTurno = (()=>{ const s = safeGet('tre_ch_turno'); return s === null ? turnoAtualSite() : (s === 'todos' ? '' : s); })();
+const doTurno = c => !chTurno || turnoDoChamado(c) === chTurno;
+function renderTurnos(){
+  document.querySelectorAll('.ch-turnos button').forEach(b=>{
+    const on = b.dataset.turno === chTurno;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+document.querySelectorAll('.ch-turnos button').forEach(b=> b.addEventListener('click', ()=>{
+  chTurno = b.dataset.turno;
+  safeSet('tre_ch_turno', chTurno || 'todos');
+  renderTurnos();
+  aplicarFiltroChamados(); // lista, contadores, gráfico e, no modo Chamados, tabela e mapa
+}));
+renderTurnos();
+
 // ---- Texto do chamado no modelo "Resumo de ocorrência" do WhatsApp ----
 // (*negrito* e _itálico_ são a formatação do próprio WhatsApp)
 function textoWhatsApp(c){
@@ -3010,7 +3054,7 @@ function textoWhatsApp(c){
   const relato = [String(c.descricao||'').trim().replace(/[\s.;,]+$/, ''), zona ? 'zona ' + zona : '', c.secao ? 'seção ' + c.secao : '', situacao]
     .filter(Boolean).join(', ') + '.';
   return [
-    '*OPERAÇÃO ELEIÇÕES 2026*', '',
+    '*OPERAÇÃO ELEIÇÕES 2026 – ' + CH_TURNO_NOME[turnoDoChamado(c)].toUpperCase() + '*', '',
     '*RESUMO DE OCORRÊNCIA:*', '',
     '🏪 *_Órgão_*: SEMED', '',
     '📆 *_Data_*: ' + (data || ''), '',
@@ -3103,6 +3147,7 @@ function chamadosNoEscopo(){
   const escolas = filtrosDeEscolaAtivos() ? new Set(getRowsEscola().map(chaveEscola)) : null;
   const categoria = state.campo==='ac' ? 'Ar-condicionado' : (state.campo==='pred' ? 'Predial' : null);
   return chamados.filter(c =>
+    doTurno(c) &&
     (!escolas || escolas.has(chaveChamado(c))) &&
     (!state.emp || c.empresa === state.emp) &&
     (!categoria || c.categoria === categoria));
@@ -3117,10 +3162,11 @@ function chamadosFiltrados(){
 
 function renderChamados(silent){
   if(chSnapshot === null) return; // ainda carregando (ou falhou): mantém a mensagem do card
-  // número no "Chamados" da barra do topo: abertos + em andamento
-  const pendentes = chamados.filter(c=> c.status !== 'Concluído').length;
+  // número no "Chamados" da barra do topo: abertos + em andamento (do turno escolhido)
+  const pendentes = chamados.filter(c=> doTurno(c) && c.status !== 'Concluído').length;
   const selo = document.getElementById('visaoPendentes');
   selo.textContent = pendentes;
+  selo.title = 'Chamados abertos ou em andamento' + (chTurno ? ' — ' + CH_TURNO_NOME[chTurno] : '');
   selo.style.display = pendentes ? '' : 'none';
   const escopo = chamadosNoEscopo();
   // cards de total: todos, ar-condicionado e predial (mesmos filtros dos contadores abaixo)
@@ -3161,7 +3207,9 @@ function renderChamados(silent){
   if(!chamados.length){
     box.innerHTML = `<div class="ch-empty">Nenhum chamado registrado.${IS_ADMIN ? ' Pra abrir um, use o ícone de chamado na coluna Ações da tabela.' : ''}</div>`;
   } else if(!lista.length){
-    box.innerHTML = '<div class="ch-empty">Nenhum chamado com esse filtro.</div>';
+    box.innerHTML = chTurno && !chamados.some(doTurno)
+      ? `<div class="ch-empty">Nenhum chamado no ${CH_TURNO_NOME[chTurno]} ainda.</div>`
+      : '<div class="ch-empty">Nenhum chamado com esse filtro.</div>';
   } else {
     const dlIco = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"/><path d="M7 11l5 5l5 -5"/><path d="M12 4l0 12"/></svg>';
     const zapIco = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20l1.3 -3.9a9 8 0 1 1 3.4 2.9l-4.7 1"/><path d="M9 10h6"/><path d="M9 13.5h4"/></svg>';
@@ -3169,7 +3217,7 @@ function renderChamados(silent){
       <div class="ch-item">
         <div class="ch-item-main">
           <div class="ch-item-escola"><span class="ch-item-num">#${escapeHtml(c.id)}</span>${escapeHtml(c.escola)}</div>
-          <div class="ch-item-meta">Zona ${escapeHtml(c.zona)}${c.secao ? ', seção ' + escapeHtml(c.secao) : ''} · ${escapeHtml(c.categoria)} · ${escapeHtml(c.empresa)} · ${escapeHtml(chDataHora(c))}</div>
+          <div class="ch-item-meta">${chTurno ? '' : CH_TURNO_NOME[turnoDoChamado(c)] + ' · '}Zona ${escapeHtml(c.zona)}${c.secao ? ', seção ' + escapeHtml(c.secao) : ''} · ${escapeHtml(c.categoria)} · ${escapeHtml(c.empresa)} · ${escapeHtml(chDataHora(c))}</div>
           <div class="ch-item-desc">${escapeHtml(c.descricao)}</div>
         </div>
         <div class="ch-item-side">
@@ -3288,6 +3336,7 @@ function openChamadoModal(row){
   document.getElementById('chCategoria').value = cat;
   document.getElementById('chEmpresa').value = empresaPadrao(row, cat);
   document.getElementById('chStatus').value = 'Aberto';
+  document.getElementById('chTurnoSel').value = chTurno || turnoAtualSite(); // o turno que está na tela
   document.getElementById('chSecao').value = '';
   document.getElementById('chDescricao').value = '';
   document.getElementById('chFormError').style.display = 'none';
@@ -3307,6 +3356,7 @@ function openEditarChamado(c){
   document.getElementById('chCategoria').value = c.categoria || '';
   document.getElementById('chEmpresa').value = c.empresa || '';
   document.getElementById('chStatus').value = c.status || 'Aberto';
+  document.getElementById('chTurnoSel').value = turnoDoChamado(c);
   document.getElementById('chDescricao').value = c.descricao || '';
   document.getElementById('chFormError').style.display = 'none';
   const btn = document.getElementById('chFormSubmit');
@@ -3337,6 +3387,7 @@ document.getElementById('chFormSubmit').onclick = async ()=>{
     categoria: document.getElementById('chCategoria').value,
     empresa: document.getElementById('chEmpresa').value,
     status: document.getElementById('chStatus').value,
+    turno: document.getElementById('chTurnoSel').value,
     descricao
   };
   if(!dados.categoria || !dados.empresa){
@@ -3401,7 +3452,7 @@ function desenharCard(ctx, c, x, y, w, desenhar){
 
   ctx.textBaseline = 'top';
   ctx.font = `14px ${F}`; ctx.fillStyle = '#6b6459';
-  ctx.textAlign = 'left'; ctx.fillText(`Chamado #${c.id} · ${chDataHora(c)}`, x+pad, cy);
+  ctx.textAlign = 'left'; ctx.fillText(`Chamado #${c.id} · ${CH_TURNO_NOME[turnoDoChamado(c)]} · ${chDataHora(c)}`, x+pad, cy);
   ctx.textAlign = 'right'; ctx.fillText(`Zona ${c.zona}`, x+w-pad, cy);
   ctx.textAlign = 'left';
   cy += lTopo + 10;
