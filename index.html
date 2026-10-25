@@ -1344,7 +1344,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="field-row">
       <div class="field"><label for="chTurnoSel">Turno</label><select id="chTurnoSel" title="1º turno: 04/10 · 2º turno: 25/10"><option value="1">1º turno</option><option value="2">2º turno</option></select></div>
       <div class="field"><label for="chSecao">Seção</label><input type="text" id="chSecao" inputmode="numeric" placeholder="ex: 0412"></div>
-      <div class="field"><label for="chCategoria">Categoria</label><select id="chCategoria"><option>Ar-condicionado</option><option>Predial</option></select></div>
+      <div class="field"><label for="chCategoria">Categoria</label><select id="chCategoria"><option>Ar-condicionado</option><option>Predial</option><option>Linha Branca</option></select></div>
     </div>
     <div class="field-row">
       <div class="field"><label for="chEmpresa">Empresa</label><select id="chEmpresa"></select></div>
@@ -3169,7 +3169,7 @@ function renderChamados(silent){
   selo.title = 'Chamados abertos ou em andamento' + (chTurno ? ' — ' + CH_TURNO_NOME[chTurno] : '');
   selo.style.display = pendentes ? '' : 'none';
   const escopo = chamadosNoEscopo();
-  // cards de total: todos, ar-condicionado e predial (mesmos filtros dos contadores abaixo)
+  // cards de total: todos, ar-condicionado, predial e linha branca (mesmos filtros dos contadores abaixo)
   const resumo = cat => {
     const l = cat ? escopo.filter(c=> c.categoria === cat) : escopo;
     const n = s => l.filter(c=> c.status === s).length;
@@ -3177,9 +3177,10 @@ function renderChamados(silent){
   };
   const plural = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
   document.getElementById('chKbGrid').innerHTML = [
-    Object.assign({ titulo: 'Total de chamados — AC + Predial', main: true }, resumo(null)),
+    Object.assign({ titulo: 'Total de chamados', main: true }, resumo(null)),
     Object.assign({ titulo: 'Chamados de Ar-condicionado' }, resumo('Ar-condicionado')),
     Object.assign({ titulo: 'Chamados de Predial' }, resumo('Predial')),
+    Object.assign({ titulo: 'Chamados de Linha Branca' }, resumo('Linha Branca')),
   ].map(k=>`
     <div class="kb-card ${k.main ? 'kb-main' : ''}">
       <div class="kb-title">${k.titulo}</div>
@@ -3320,6 +3321,7 @@ chFiltroStatus.onchange = aplicarFiltroChamados;
 chFiltroEmp.onchange = aplicarFiltroChamados;
 
 // ---- Modal "Abrir chamado" / "Editar chamado" (o mesmo formulário) ----
+// empresa sugerida: a do serviço da escola (Linha Branca sugere a do ar-condicionado)
 function empresaPadrao(row, categoria){
   const e = String((categoria==='Predial' ? row.pred_emp : row.ac_emp) || '').toUpperCase();
   return CH_EMPRESAS.includes(e) ? e : CH_EMPRESAS[0];
