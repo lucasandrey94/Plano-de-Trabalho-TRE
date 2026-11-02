@@ -74,7 +74,7 @@ Tela própria (3ª opção do "Visualizar" do topo), **sem relação com Escolas
 - **Registro de autorização (uso interno, só o ADM vê):** coluna `LOG AUTORIZAÇÃO` com o JSON `[{a, por, em}]` de cada mudança (inclusive a volta para "Aguardando" quando a empresa manda orçamento novo depois de negado). O servidor só manda `aut_log` para o ADM; na tela aparece "por … · data" embaixo da autorização, o histórico no formulário e duas colunas no CSV do ADM.
 - `ORÇAMENTO` gravado como número (formato `"R$" #,##0.00`); no site o campo se formata ao sair dele (12.500,00), e textos como `1.234,56` digitados na planilha também são lidos. "Prédio locado" = `IMÓVEL` igual a `LOCADO`.
 - Coordenadas: o CSV usa vírgula decimal (planilha em português). O Apps Script lê número ou texto com vírgula/ponto e descarta valores fora do Amazonas.
-- Endpoints: `demandas-listar` (inclusive consulta) e `demanda-salvar`.
+- Endpoints: `demandas-listar` (inclusive consulta), `demanda-salvar` e `demanda-excluir` (ADM: apaga todas as colunas de acompanhamento da unidade — nº do SIM, serviço, empresa, orçamento, autorização, status, observações e histórico — e ela volta à condição inicial; botão "Excluir demanda" no formulário).
 
 ## Regras de dados que já causaram bugs
 

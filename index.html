@@ -351,6 +351,9 @@
   .dm-urgente{ display:flex !important; align-items:center; gap:6px; height:37px; margin:0 !important; font-size:0.9rem !important; color:var(--ink) !important; font-weight:600 !important; cursor:pointer; }
   .field .dm-urgente input{ width:18px; height:18px; margin:0; accent-color:var(--danger); }
   .tag.urgente{ background:var(--danger); color:#fff; }
+  .dm-excluir{ margin-top:10px; width:100%; padding:8px; border-radius:6px; border:1px solid var(--danger); background:transparent; color:var(--danger); font-weight:600; font-size:0.85rem; cursor:pointer; font-family:-apple-system,"Segoe UI",sans-serif; }
+  .dm-excluir:hover:not(:disabled){ background:var(--danger); color:#fff; }
+  .dm-excluir:disabled{ opacity:0.6; cursor:default; }
   /* autorização: botões que salvam na hora + registro (só ADM) */
   .dm-aut{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .dm-aut-botoes{ display:inline-flex; gap:6px; flex-wrap:wrap; }
@@ -1485,6 +1488,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="dm-dica" id="dmDica"></div>
     <div class="login-error" id="dmErro" style="display:none"></div>
     <button class="login-btn" id="dmSalvar" style="margin-top:8px;">Salvar</button>
+    <button type="button" class="dm-excluir" id="dmExcluir">🗑 Excluir demanda</button>
   </div>
 </div>
 
@@ -4200,6 +4204,8 @@ function abrirDemanda(d){
   const btn = dmEl('dmSalvar');
   btn.disabled = false; btn.textContent = dmTextoBotao();
   btn.style.display = dmPapel === 'sub' ? 'none' : ''; // o Subsecretário usa só os botões
+  // ADM: excluir a demanda (volta à condição inicial) — só aparece se tiver algo cadastrado
+  dmEl('dmExcluir').style.display = dmPapel === 'adm' && dmTemDados(d) ? '' : 'none';
   dmModal.classList.add('open');
   setTimeout(()=>{
     const alvo = dmPapel === 'adm' ? dmEl(tem ? 'dmEngenheiro' : 'dmDemanda')
@@ -4209,6 +4215,29 @@ function abrirDemanda(d){
   }, 50);
 }
 function fecharDemanda(){ dmModal.classList.remove('open'); dmEditando = null; }
+// a unidade tem algo cadastrado além da base da Sigeam?
+const dmTemDados = d => dmTemDemanda(d) || !!d.urgente || !!d.engenheiro || !!d.empresa || d.orcamento != null
+  || dmItens(d).length > 0 || !!d.obs || !!d.autorizacao || !!d.status;
+dmEl('dmExcluir').onclick = async ()=>{
+  const d = dmEditando;
+  if(!d) return;
+  if(!confirm('Excluir a demanda da escola "' + d.nome + '"?\n\nApaga o nº do SIM, o serviço, a empresa, o orçamento, a autorização, o status, as observações e o histórico. A escola volta à condição inicial.\n\nNão dá pra desfazer.')) return;
+  const btn = dmEl('dmExcluir');
+  btn.disabled = true; btn.textContent = 'Excluindo...';
+  try{
+    const r = await postToScript('demanda-excluir', { sigeam: d.sigeam });
+    const i = dmLista.findIndex(x=> x.sigeam === d.sigeam);
+    if(i !== -1 && r.demanda) dmLista[i] = r.demanda;
+    fecharDemanda();
+    dmMontarFiltros(); renderDemandas();
+    dmSnapshot = null; carregarDemandas(true);
+  } catch(e){
+    dmEl('dmErro').textContent = 'Não deu pra excluir: ' + String(e.message || e).replace(/^Error:\s*/, '');
+    dmEl('dmErro').style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '🗑 Excluir demanda';
+  }
+};
 dmEl('dmModalClose').onclick = fecharDemanda;
 dmModal.addEventListener('click', (e)=>{ if(e.target === dmModal) fecharDemanda(); });
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && dmModal.classList.contains('open')) fecharDemanda(); });
