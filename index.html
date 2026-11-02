@@ -341,7 +341,13 @@
   .dm-table th:hover{ color:var(--muted); }
   .dm-escola{ font-weight:650; }
   .dm-sub{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.74rem; color:var(--muted); margin-top:2px; }
-  .dm-servico{ max-width:300px; white-space:pre-line; }
+  .dm-servico{ max-width:300px; }
+  .dm-item{ font-size:0.86rem; line-height:1.35; margin:1px 0; }
+  .dm-item .dm-marca{ display:inline-block; width:1.1em; color:var(--muted); }
+  .dm-item.ok{ color:var(--muted); }
+  .dm-item.ok .dm-marca{ color:#3d8a6f; }
+  #dmItensVer{ margin:2px 0 0; }
+  #dmItensVer:empty{ display:none; }
   .dm-orc{ white-space:nowrap; font-variant-numeric:tabular-nums; }
   .dm-vazio{ color:var(--muted); font-style:italic; text-align:center !important; padding:24px !important; }
   .dm-sem{ color:var(--muted); }
@@ -1431,7 +1437,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="field" style="flex:0 0 170px"><label for="dmDemanda">Nº da demanda (SIM)</label><input type="text" id="dmDemanda" autocomplete="off" placeholder="ex: 2026/00123"></div>
       <div class="field"><label for="dmEngenheiro">Engenheiro responsável</label><input type="text" id="dmEngenheiro" autocomplete="off"></div>
     </div>
-    <div class="field"><label for="dmServico">Serviço</label><textarea id="dmServico" rows="3" placeholder="ex: Troca do telhado do bloco B"></textarea></div>
+    <div class="field"><label>Serviço (checklist)</label>
+      <!-- ADM: editor (mesmo das escolas); empresa: lista pra dar baixa nos itens dela -->
+      <div id="dmItensEditor">
+        <div class="ck-edit" id="dmItens"></div>
+        <button type="button" class="ck-add" id="dmAddItem">+ Adicionar item</button>
+        <div class="ck-hint" id="dmItensDica"></div>
+      </div>
+      <ul class="ck-list" id="dmItensVer"></ul>
+    </div>
     <div class="field-row">
       <div class="field"><label for="dmEmpresa">Empresa</label><select id="dmEmpresa"></select></div>
       <div class="field"><label for="dmOrcamento">Orçamento (R$)</label><input type="text" id="dmOrcamento" inputmode="decimal" autocomplete="off" placeholder="ex: 12.500,00"></div>
@@ -1440,6 +1454,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="field"><label for="dmAutorizacao">Status da autorização</label><select id="dmAutorizacao"></select></div>
       <div class="field"><label for="dmStatus">Status do serviço</label><select id="dmStatus"></select></div>
     </div>
+    <div class="field" id="dmObsCampo"><label for="dmObs">Observações</label><textarea id="dmObs" placeholder="ex: pintura da fachada fica para depois"></textarea></div>
     <div class="dm-dica" id="dmDica"></div>
     <div class="login-error" id="dmErro" style="display:none"></div>
     <button class="login-btn" id="dmSalvar" style="margin-top:8px;">Salvar</button>
@@ -2810,13 +2825,16 @@ const editForm = {
 
 // ---- Checklist no formulário: uma linha por item (caixinha + texto + remover) ----
 const selStatusForm = campo => campo==='ac' ? editForm.acStatus : editForm.predStatus;
-const caixaItensForm = campo => document.getElementById('ef_' + campo + '_itens');
+// o mesmo editor serve às escolas ('ac'/'pred') e ao serviço das demandas ('dm')
+const caixaItensForm = campo => document.getElementById(campo === 'dm' ? 'dmItens' : 'ef_' + campo + '_itens');
+const obsDoForm = campo => campo === 'dm' ? document.getElementById('dmObs') : (campo === 'ac' ? editForm.acObs : editForm.predObs);
+const ckAtualizar = campo => campo === 'dm' ? dmAtualizarChecklist() : atualizarChecklistForm(campo);
 
 function montarChecklistForm(campo, itens){
   const caixa = caixaItensForm(campo);
   caixa.innerHTML = '';
   itens.forEach(i=> caixa.appendChild(linhaItemForm(campo, i.t, i.ok, i.emp)));
-  atualizarChecklistForm(campo);
+  ckAtualizar(campo);
 }
 
 // empresas que podem receber um item: as da lista dos chamados + as que já
@@ -2831,19 +2849,19 @@ function linhaItemForm(campo, texto, ok, emp){
   linha.innerHTML = '<input type="checkbox" title="Item feito">' +
     '<input type="text" placeholder="ex: Trocar 2 lâmpadas do corredor">' +
     '<select title="Empresa que executa este item (ela dá baixa no login dela)" aria-label="Empresa que executa o item"></select>' +
-    '<button type="button" class="ck-mov" title="Mover para Observações (não impacta o pleito)">↓ Obs.</button>' +
+    '<button type="button" class="ck-mov" title="' + (campo === 'dm' ? 'Mover para Observações' : 'Mover para Observações (não impacta o pleito)') + '">↓ Obs.</button>' +
     '<button type="button" class="ck-del" title="Remover item" aria-label="Remover item">✕</button>';
   const [cb, txt, sel, mov, del] = linha.children;
   cb.checked = !!ok;
   txt.value = texto || '';
   // vazio = a empresa do serviço; outra empresa = item direcionado (apoio)
-  const nomes = empresasParaItens();
+  const nomes = campo === 'dm' ? DM_EMPRESAS.slice() : empresasParaItens();
   if(emp && !nomes.includes(emp)) nomes.push(emp);
   sel.innerHTML = '<option value="">Empresa do serviço</option>' +
     nomes.map(n=> `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
   sel.value = emp || '';
-  cb.addEventListener('change', ()=> atualizarChecklistForm(campo));
-  txt.addEventListener('input', ()=> atualizarChecklistForm(campo));
+  cb.addEventListener('change', ()=> ckAtualizar(campo));
+  txt.addEventListener('input', ()=> ckAtualizar(campo));
   // Enter cria o próximo item logo abaixo
   txt.addEventListener('keydown', (e)=>{
     if(e.key !== 'Enter' || e.isComposing) return;
@@ -2851,7 +2869,7 @@ function linhaItemForm(campo, texto, ok, emp){
     const nova = linhaItemForm(campo, '', false);
     linha.after(nova);
     nova.children[1].focus();
-    atualizarChecklistForm(campo);
+    ckAtualizar(campo);
   });
   // colar uma lista (várias linhas) vira vários itens
   txt.addEventListener('paste', (e)=>{
@@ -2861,16 +2879,16 @@ function linhaItemForm(campo, texto, ok, emp){
     if(!txt.value.trim()) txt.value = partes.shift();
     let ultima = linha;
     partes.forEach(p=>{ const nova = linhaItemForm(campo, p, false); ultima.after(nova); ultima = nova; });
-    atualizarChecklistForm(campo);
+    ckAtualizar(campo);
   });
-  del.addEventListener('click', ()=>{ linha.remove(); atualizarChecklistForm(campo); });
+  del.addEventListener('click', ()=>{ linha.remove(); ckAtualizar(campo); });
   // tira o item do checklist e manda o texto pras Observações (fora do pleito)
   mov.addEventListener('click', ()=>{
     const t = txt.value.trim();
-    const obs = campo==='ac' ? editForm.acObs : editForm.predObs;
+    const obs = obsDoForm(campo);
     if(t) obs.value = obs.value.trim() ? obs.value.replace(/\s+$/, '') + '\n' + t : t;
     linha.remove();
-    atualizarChecklistForm(campo);
+    ckAtualizar(campo);
   });
   return linha;
 }
@@ -2902,7 +2920,7 @@ function atualizarChecklistForm(campo){
     : k + ' de ' + n + (n===1 ? ' item feito' : ' itens feitos') + ' — o status acompanha o checklist (todos marcados = concluído).';
 }
 
-document.querySelectorAll('.ck-add').forEach(b=>{
+document.querySelectorAll('.ck-add[data-campo]').forEach(b=>{ // AC e Predial (o das demandas tem o próprio)
   b.addEventListener('click', ()=>{
     const campo = b.dataset.campo;
     const sel = selStatusForm(campo);
@@ -3732,10 +3750,38 @@ function dmValor(s){
   const n = Number(t);
   return isFinite(n) && n >= 0 ? n : NaN;
 }
-// a empresa informa o orçamento das demandas dela enquanto não estiver autorizado
-const dmEmpresaPode = d => !!MY_COMPANY && !IS_READONLY && dmTemDemanda(d) && d.autorizacao !== 'Autorizado'
-  && String(d.empresa || '').toUpperCase() === String(MY_COMPANY).toUpperCase();
-const dmPodeAbrir = d => (IS_ADMIN && !IS_READONLY) || dmEmpresaPode(d);
+// itens do serviço: emp = empresa que executa o item (vazio = a empresa da demanda)
+const dmItens = d => d.servico_itens || [];
+const dmExecutor = (d, it) => String(it.emp || d.empresa || '').toUpperCase();
+const dmMinhaEmpresa = () => String(MY_COMPANY || '').toUpperCase();
+// antes da autorização, a empresa da demanda informa o orçamento; depois de autorizado,
+// cada empresa dá baixa nos itens que ela executa (a empresa de apoio só nos dela)
+const dmPodeOrcamento = d => !!MY_COMPANY && !IS_READONLY && dmTemDemanda(d) && !d.apoio
+  && d.autorizacao !== 'Autorizado' && String(d.empresa || '').toUpperCase() === dmMinhaEmpresa();
+const dmPodeBaixa = d => !!MY_COMPANY && !IS_READONLY && dmTemDemanda(d) && d.autorizacao === 'Autorizado'
+  && dmItens(d).some(it => !it.ok && dmExecutor(d, it) === dmMinhaEmpresa());
+const dmPodeAbrir = d => (IS_ADMIN && !IS_READONLY) || dmPodeOrcamento(d) || dmPodeBaixa(d);
+// empresas de apoio de uma demanda (itens direcionados a outra empresa)
+const dmApoios = d => Array.from(new Set(dmItens(d).map(it => it.emp).filter(e => e && String(e).toUpperCase() !== String(d.empresa || '').toUpperCase())));
+// status do serviço pelo checklist (mesma regra do Code.gs: statusDmPelosItens_)
+function statusDmPelosItens(itens, atual){
+  if(!itens.length) return atual;
+  const feitos = itens.filter(i=> i.ok).length;
+  if(feitos === itens.length) return 'Concluído';
+  if(atual === 'Paralisado') return atual;
+  if(feitos > 0) return 'Em andamento';
+  return atual === 'Concluído' ? 'Em andamento' : (atual || 'Não iniciado');
+}
+// serviço na tabela: os itens com ✓, a empresa de apoio e "2/5 itens"
+function dmServicoHtml(d){
+  const itens = dmItens(d);
+  if(!itens.length) return '<span class="dm-sem">—</span>';
+  const feitos = itens.filter(i=> i.ok).length;
+  const linhas = itens.slice(0, 4).map(it=> `<div class="dm-item${it.ok ? ' ok' : ''}"><span class="dm-marca">${it.ok ? '✓' : '○'}</span>${escapeHtml(it.t)}`
+    + (it.emp && dmExecutor(d, it) !== String(d.empresa || '').toUpperCase() ? ` <span class="ck-emp">${escapeHtml(it.emp)}</span>` : '') + '</div>').join('');
+  return linhas + (itens.length > 4 ? `<div class="dm-sub">+ ${itens.length - 4} ${itens.length - 4 === 1 ? 'item' : 'itens'}</div>` : '')
+    + (itens.length > 1 ? `<div class="ck-mini">${feitos}/${itens.length} itens feitos</div>` : '');
+}
 
 function dmAviso(msg){ const el = dmEl('dmAviso'); el.textContent = msg; el.style.display = msg ? '' : 'none'; }
 
@@ -3847,7 +3893,8 @@ function dmRenderTabela(lista){
   tb.innerHTML = lista.map((d, i)=>{
     const tem = dmTemDemanda(d);
     const acao = IS_ADMIN && !IS_READONLY ? `<button class="dm-acao" data-i="${i}">${tem ? '✎ Editar' : '+ Demanda'}</button>`
-      : dmEmpresaPode(d) ? `<button class="dm-acao" data-i="${i}">${d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento'}</button>` : '';
+      : dmPodeOrcamento(d) ? `<button class="dm-acao" data-i="${i}">${d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento'}</button>`
+      : dmPodeBaixa(d) ? `<button class="dm-acao" data-i="${i}">Dar baixa</button>` : '';
     return `<tr>
       <td data-label="Escola"><div class="dm-escola">${escapeHtml(d.nome)}${!tem && dmF.demanda !== 'nao' ? ' <span class="tag none">sem demanda</span>' : ''}</div>
         <div class="dm-sub">SIGEAM ${escapeHtml(d.sigeam)} · ${escapeHtml(d.ensino)} · ${escapeHtml(d.distrito)}</div>
@@ -3855,8 +3902,10 @@ function dmRenderTabela(lista){
       <td data-label="Demanda SIM">${tem ? (dmNumero(d) ? `<b>${escapeHtml(dmNumero(d))}</b>` : '<span class="tag gap">sem nº</span>') : traco}</td>
       <td data-label="Prédio locado">${dmLocado(d) ? '<span class="tag media">Sim</span>' : `<span class="tag none">Não</span>${d.imovel ? `<div class="dm-sub">${escapeHtml(d.imovel)}</div>` : ''}`}</td>
       <td data-label="Engenheiro responsável">${tem && d.engenheiro ? escapeHtml(d.engenheiro) : traco}</td>
-      <td data-label="Serviço"><div class="dm-servico">${tem && d.servico ? escapeHtml(d.servico) : traco}</div></td>
-      <td data-label="Empresa">${tem && d.empresa ? escapeHtml(d.empresa) : traco}</td>
+      <td data-label="Serviço"><div class="dm-servico">${tem ? dmServicoHtml(d) : traco}</div></td>
+      <td data-label="Empresa">${tem && d.empresa ? escapeHtml(d.empresa)
+        + (d.apoio ? '<div class="dm-sub">sua empresa: itens de apoio</div>'
+          : dmApoios(d).length ? `<div class="dm-sub">apoio: ${escapeHtml(dmApoios(d).join(', '))}</div>` : '') : traco}</td>
       <td data-label="Orçamento" class="dm-orc">${tem && d.orcamento != null ? dmReal(d.orcamento) : traco}</td>
       <td data-label="Autorização">${dmPill(dmAutRotulo(d), DM_AUT_COR[dmAutRotulo(d)])}</td>
       <td data-label="Status do serviço">${dmPill(dmStatusRotulo(d), DM_STATUS_COR[dmStatusRotulo(d)])}</td>
@@ -3900,11 +3949,11 @@ function dmRenderMapa(lista){
       tem ? `<div class="chmap-meta">Demanda SIM: <b>${escapeHtml(dmNumero(d) || 'sem nº')}</b></div>` : '',
       d.endereco ? `<div class="chmap-meta">${escapeHtml(d.endereco)}</div>` : '',
       `<div class="chmap-meta">Imóvel: ${escapeHtml(d.imovel || '—')}${dmLocado(d) ? ' (prédio locado)' : ''}</div>`,
-      tem ? `<div class="chmap-desc">${escapeHtml(d.servico || 'Serviço não informado')}</div>
+      tem ? `<div class="chmap-desc">${dmItens(d).length ? dmServicoHtml(d) : 'Serviço não informado'}</div>
              <div class="chmap-meta">${escapeHtml(d.empresa || 'Sem empresa')}${d.orcamento != null ? ' · ' + dmReal(d.orcamento) : ''}${d.engenheiro ? ' · Eng. ' + escapeHtml(d.engenheiro) : ''}</div>
              <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">${dmPill(dmAutRotulo(d), DM_AUT_COR[dmAutRotulo(d)])}${dmPill(dmStatusRotulo(d), DM_STATUS_COR[dmStatusRotulo(d)])}</div>`
           : '<div class="chmap-meta">Sem demanda</div>',
-      dmPodeAbrir(d) ? `<button class="popup-detail-btn" data-i="${i}">${IS_ADMIN ? (tem ? 'Editar demanda' : 'Registrar demanda') : (d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento')}</button>` : ''
+      dmPodeAbrir(d) ? `<button class="popup-detail-btn" data-i="${i}">${IS_ADMIN ? (tem ? 'Editar demanda' : 'Registrar demanda') : (dmPodeOrcamento(d) ? (d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento') : 'Dar baixa nos itens')}</button>` : ''
     ].join('');
     L.circleMarker([d.lat, d.lon], { radius: tem ? 8 : 5, color: '#ffffff', weight: 1.5, fillColor: cor, fillOpacity: tem ? 0.95 : 0.75 })
       .bindPopup(html, { maxWidth: 300, minWidth: 220 })
@@ -3959,33 +4008,91 @@ function dmOpcoesEmpresa(atual){
   dmEl('dmEmpresa').innerHTML = '<option value="">— escolha a empresa —</option>' + nomes.map(e=> `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
   dmEl('dmEmpresa').value = atual || '';
 }
-const DM_CAMPOS_ADM = ['dmDemanda', 'dmEngenheiro', 'dmServico', 'dmEmpresa', 'dmAutorizacao', 'dmStatus'];
-const dmTextoBotao = ()=> IS_ADMIN ? 'Salvar' : 'Enviar orçamento';
+const DM_CAMPOS_ADM = ['dmDemanda', 'dmEngenheiro', 'dmEmpresa', 'dmAutorizacao', 'dmStatus', 'dmObs'];
+
+// ADM: o status do serviço acompanha o checklist (todos marcados = Concluído;
+// algum = Em andamento; Paralisado é escolha manual). Os status que não combinam
+// com os itens ficam desabilitados no seletor.
+function dmAtualizarChecklist(){
+  const sel = dmEl('dmStatus');
+  const itens = itensDoForm('dm');
+  const n = itens.length, k = itens.filter(i=> i.ok).length;
+  if(n){ const s = statusDmPelosItens(itens, sel.value); if(s !== sel.value) sel.value = s; }
+  Array.from(sel.options).forEach(o=>{
+    o.disabled = n > 0 && ((o.value === 'Não iniciado' && k > 0) || (o.value !== 'Concluído' && k === n));
+  });
+  dmEl('dmItensDica').textContent = !n
+    ? 'Nenhum item. Use "+ Adicionar item" ou cole uma lista (um item por linha).'
+    : k + ' de ' + n + (n === 1 ? ' item feito' : ' itens feitos') + ' — o status do serviço acompanha o checklist (todos marcados = concluído).';
+}
+dmEl('dmAddItem').addEventListener('click', ()=>{
+  const nova = linhaItemForm('dm', '', false);
+  dmEl('dmItens').appendChild(nova);
+  nova.children[1].focus();
+  dmAtualizarChecklist();
+});
+// escolher "Concluído" marca todos os itens
+dmEl('dmStatus').addEventListener('change', ()=>{
+  if(dmEl('dmStatus').value === 'Concluído') dmEl('dmItens').querySelectorAll('input[type="checkbox"]').forEach(cb=> cb.checked = true);
+  dmAtualizarChecklist();
+});
+
+// empresa: lista dos itens; só dá pra marcar os dela, ainda não feitos, depois de autorizado
+function dmMontarItensEmpresa(d){
+  const autorizado = d.autorizacao === 'Autorizado';
+  dmEl('dmItensVer').innerHTML = dmItens(d).map((it, k)=>{
+    const minha = dmExecutor(d, it) === dmMinhaEmpresa();
+    const pode = autorizado && minha && !it.ok;
+    const dica = it.ok ? '' : !minha ? ` title="Item da empresa ${escapeHtml(dmExecutor(d, it))}"` : !autorizado ? ' title="Dá pra dar baixa depois que o ADM autorizar a execução"' : '';
+    const meta = it.ok && it.por ? `<span class="ck-meta">✓ ${escapeHtml(it.por)}${it.em ? ' · ' + escapeHtml(it.em) : ''}</span>` : '';
+    const tag = it.emp && dmExecutor(d, it) !== String(d.empresa || '').toUpperCase() ? `<span class="ck-emp">${escapeHtml(it.emp)}</span>` : '';
+    return `<li><label class="ck-item${it.ok ? ' ok' : ''}${pode ? '' : ' travado'}"${dica}>`
+      + `<input type="checkbox" data-k="${k}"${it.ok ? ' checked' : ''}${pode ? '' : ' disabled'}>`
+      + `<span class="ck-t">${escapeHtml(it.t)}${tag}${meta}</span></label></li>`;
+  }).join('') || '<li class="dm-sub">Nenhum item cadastrado.</li>';
+}
+
+const dmTextoBotao = ()=> IS_ADMIN ? 'Salvar' : 'Enviar';
 function abrirDemanda(d){
   if(!d || !dmPodeAbrir(d)) return;
   dmEditando = d;
   const tem = dmTemDemanda(d);
-  dmEl('dmModalTitle').textContent = IS_ADMIN ? (tem ? 'Editar demanda' : 'Registrar demanda') : 'Informar orçamento';
+  const podeOrc = dmPodeOrcamento(d);
+  dmEl('dmModalTitle').textContent = IS_ADMIN ? (tem ? 'Editar demanda' : 'Registrar demanda') : (podeOrc ? 'Informar orçamento' : 'Dar baixa nos itens');
   dmEl('dmModalSub').textContent = d.atualizado_em ? 'Última atualização: ' + d.atualizado_em + (d.atualizado_por ? ' por ' + d.atualizado_por : '') : '';
   dmEl('dmEscola').textContent = d.nome;
   dmEl('dmEscolaMeta').textContent = ['SIGEAM ' + d.sigeam, d.ensino, d.distrito, d.imovel ? 'Imóvel: ' + d.imovel : ''].filter(Boolean).join(' · ');
   dmEl('dmDemanda').value = d.demanda || '';
   dmEl('dmEngenheiro').value = d.engenheiro || '';
-  dmEl('dmServico').value = d.servico || '';
   dmOpcoesEmpresa(String(d.empresa || '').toUpperCase());
   dmEl('dmOrcamento').value = d.orcamento == null ? '' : Number(d.orcamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   dmEl('dmAutorizacao').value = d.autorizacao || 'Aguardando';
   dmEl('dmStatus').value = d.status || 'Não iniciado';
+  dmEl('dmObs').value = d.obs || '';
   DM_CAMPOS_ADM.forEach(id=> dmEl(id).disabled = !IS_ADMIN);
+  dmEl('dmOrcamento').disabled = !(IS_ADMIN || podeOrc);
+  // serviço: o ADM edita o checklist; a empresa vê a lista e dá baixa nos itens dela
+  dmEl('dmItensEditor').style.display = IS_ADMIN ? '' : 'none';
+  dmEl('dmObsCampo').style.display = IS_ADMIN || d.obs ? '' : 'none';
+  if(IS_ADMIN){
+    dmEl('dmItensVer').innerHTML = '';
+    montarChecklistForm('dm', dmItens(d));
+  } else {
+    dmMontarItensEmpresa(d);
+  }
   dmEl('dmDica').textContent = IS_ADMIN
-    ? 'Com o nº da demanda SIM preenchido, a escola passa a ter demanda e a empresa escolhida vê no login dela. A empresa informa o orçamento (você também pode preencher); depois de ver o valor, autorize ou não a execução.'
-    : 'Depois de enviado, o ADM Geral autoriza ou não a execução.'
-      + (d.autorizacao === 'Não autorizado' ? ' O orçamento anterior não foi autorizado: um valor novo volta para a análise do ADM.' : '');
+    ? 'Com o nº da demanda SIM preenchido, a escola passa a ter demanda e a empresa escolhida vê no login dela (um item direcionado a outra empresa faz a demanda aparecer pra ela também, só com esse item). A empresa informa o orçamento; depois de ver o valor, autorize ou não a execução. Depois de autorizado, as empresas dão baixa nos itens.'
+    : podeOrc
+      ? 'Depois de enviado, o ADM Geral autoriza ou não a execução.' + (d.autorizacao === 'Não autorizado' ? ' O orçamento anterior não foi autorizado: um valor novo volta para a análise do ADM.' : '')
+      : 'Marque os itens que sua empresa concluiu. Só o ADM Geral pode desmarcar depois.';
   dmEl('dmErro').style.display = 'none';
   const btn = dmEl('dmSalvar');
   btn.disabled = false; btn.textContent = dmTextoBotao();
   dmModal.classList.add('open');
-  setTimeout(()=> dmEl(IS_ADMIN ? (tem ? 'dmServico' : 'dmDemanda') : 'dmOrcamento').focus(), 50);
+  setTimeout(()=>{
+    const alvo = IS_ADMIN ? dmEl(tem ? 'dmEngenheiro' : 'dmDemanda') : (podeOrc ? dmEl('dmOrcamento') : dmEl('dmItensVer').querySelector('input:not(:disabled)'));
+    if(alvo) alvo.focus();
+  }, 50);
 }
 function fecharDemanda(){ dmModal.classList.remove('open'); dmEditando = null; }
 dmEl('dmModalClose').onclick = fecharDemanda;
@@ -3995,25 +4102,34 @@ dmEl('dmSalvar').onclick = async ()=>{
   const d = dmEditando;
   if(!d) return;
   const erro = dmEl('dmErro');
+  const falha = (msg, campo)=>{ erro.textContent = msg; erro.style.display = 'block'; if(campo) campo.focus(); };
   erro.style.display = 'none';
-  const orc = dmValor(dmEl('dmOrcamento').value);
-  if(Number.isNaN(orc)){
-    erro.textContent = 'Valor do orçamento inválido. Use, por exemplo, 12.500,00.';
-    erro.style.display = 'block'; dmEl('dmOrcamento').focus(); return;
-  }
+  const orc = dmEl('dmOrcamento').disabled ? null : dmValor(dmEl('dmOrcamento').value);
+  if(Number.isNaN(orc)) return falha('Valor do orçamento inválido. Use, por exemplo, 12.500,00.', dmEl('dmOrcamento'));
   let dados;
   if(IS_ADMIN){
+    const itens = itensDoForm('dm');
     dados = { sigeam: d.sigeam, demanda: dmEl('dmDemanda').value.trim(), engenheiro: dmEl('dmEngenheiro').value.trim(),
-      servico: dmEl('dmServico').value.trim(), empresa: dmEl('dmEmpresa').value, orcamento: orc === null ? '' : orc,
-      autorizacao: dmEl('dmAutorizacao').value, status: dmEl('dmStatus').value };
+      servico_itens: itens, servico: itens.map(i=> i.t).join('\n'), empresa: dmEl('dmEmpresa').value,
+      orcamento: orc === null ? '' : orc, autorizacao: dmEl('dmAutorizacao').value, status: dmEl('dmStatus').value,
+      obs: dmEl('dmObs').value.trim() };
     // sem o nº da demanda SIM a escola não tem demanda
     if(!dados.demanda){
-      if(!dmTemDemanda(d)){ erro.textContent = 'Informe o nº da demanda no SIM.'; erro.style.display = 'block'; dmEl('dmDemanda').focus(); return; }
+      if(!dmTemDemanda(d)) return falha('Informe o nº da demanda no SIM.', dmEl('dmDemanda'));
       if(!confirm('Sem o nº da demanda SIM, a escola "' + d.nome + '" deixa de ter demanda (sai da lista "Com demanda" e do login da empresa).\n\nContinuar?')) return;
     }
   } else {
-    if(orc === null){ erro.textContent = 'Informe o valor do orçamento.'; erro.style.display = 'block'; dmEl('dmOrcamento').focus(); return; }
-    dados = { sigeam: d.sigeam, orcamento: orc };
+    // empresa: orçamento (antes da autorização) e/ou baixa nos itens dela (depois)
+    const baixas = Array.from(dmEl('dmItensVer').querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')).map(cb=>{
+      const it = dmItens(d)[Number(cb.dataset.k)];
+      return { i: it.i !== undefined ? it.i : Number(cb.dataset.k), t: it.t };
+    });
+    if(dmPodeOrcamento(d) && orc === null) return falha('Informe o valor do orçamento.', dmEl('dmOrcamento'));
+    if(!dmPodeOrcamento(d) && !baixas.length) return falha('Marque os itens que sua empresa concluiu.');
+    if(baixas.length && !confirm('Confirma que ' + (baixas.length === 1 ? 'este item foi feito' : 'estes ' + baixas.length + ' itens foram feitos') + '?\n\nSó o ADM Geral pode desmarcar depois.')) return;
+    dados = { sigeam: d.sigeam };
+    if(dmPodeOrcamento(d)) dados.orcamento = orc;
+    if(baixas.length) dados.itens_ok = baixas;
   }
   const btn = dmEl('dmSalvar');
   btn.disabled = true; btn.textContent = 'Salvando...';
@@ -4025,8 +4141,7 @@ dmEl('dmSalvar').onclick = async ()=>{
     dmMontarFiltros(); renderDemandas();
     dmSnapshot = null; carregarDemandas(true); // confere com a planilha em seguida
   } catch(e){
-    erro.textContent = 'Não deu pra salvar: ' + String(e.message || e).replace(/^Error:\s*/, '');
-    erro.style.display = 'block';
+    falha('Não deu pra salvar: ' + String(e.message || e).replace(/^Error:\s*/, ''));
   } finally {
     btn.disabled = false; btn.textContent = dmTextoBotao();
   }
@@ -4035,10 +4150,12 @@ dmEl('dmSalvar').onclick = async ()=>{
 // ---- exportar (o que está na tabela) ----
 dmEl('dmExport').onclick = ()=>{
   const lista = dmFiltradas();
-  const cab = ['SIGEAM','Ensino','Escola','Distrito','Endereço','Imóvel','Prédio locado','Demanda SIM','Engenheiro responsável','Serviço','Empresa',
+  const cab = ['SIGEAM','Ensino','Escola','Distrito','Endereço','Imóvel','Prédio locado','Demanda SIM','Engenheiro responsável','Serviço','Observações','Empresa',
     'Orçamento (R$)','Status da autorização','Status do serviço','Atualizado em','Atualizado por'];
   const linhas = [cab.map(csvEscape).join(';')].concat(lista.map(d=> [d.sigeam, d.ensino, d.nome, d.distrito, d.endereco, d.imovel,
-    dmLocado(d) ? 'Sim' : 'Não', dmTemDemanda(d) ? (dmNumero(d) || 'sem nº') : '', d.engenheiro, d.servico, d.empresa,
+    dmLocado(d) ? 'Sim' : 'Não', dmTemDemanda(d) ? (dmNumero(d) || 'sem nº') : '', d.engenheiro,
+    dmItens(d).map(it=> (it.ok ? '[x] ' : '[ ] ') + it.t + (it.emp && dmExecutor(d, it) !== String(d.empresa || '').toUpperCase() ? ' (' + it.emp + ')' : '')).join(' | '),
+    String(d.obs || '').split(String.fromCharCode(10)).map(x=> x.trim()).filter(Boolean).join(' | '), d.empresa,
     d.orcamento == null ? '' : Number(d.orcamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     dmAutRotulo(d), dmStatusRotulo(d), d.atualizado_em, d.atualizado_por].map(csvEscape).join(';')));
   const blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
