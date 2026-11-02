@@ -347,6 +347,10 @@
   .dm-item.ok{ color:var(--muted); }
   .dm-item.ok .dm-marca{ color:#3d8a6f; }
   #dmItensVer{ margin:2px 0 0; }
+  .dm-urgente-campo{ flex:0 0 auto !important; }
+  .dm-urgente{ display:flex !important; align-items:center; gap:6px; height:37px; margin:0 !important; font-size:0.9rem !important; color:var(--ink) !important; font-weight:600 !important; cursor:pointer; }
+  .field .dm-urgente input{ width:18px; height:18px; margin:0; accent-color:var(--danger); }
+  .tag.urgente{ background:var(--danger); color:#fff; }
   #dmItensVer:empty{ display:none; }
   .dm-orc{ white-space:nowrap; font-variant-numeric:tabular-nums; }
   .dm-vazio{ color:var(--muted); font-style:italic; text-align:center !important; padding:24px !important; }
@@ -1265,6 +1269,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="toolbar">
     <select id="dmFiltroDemanda" aria-label="Demanda">
       <option value="sim">Com demanda</option>
+      <option value="urgente">Só urgentes</option>
       <option value="">Todas as unidades</option>
       <option value="nao">Sem demanda</option>
     </select>
@@ -1435,6 +1440,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="ch-school-box"><div class="nm" id="dmEscola"></div><div class="mt" id="dmEscolaMeta"></div></div>
     <div class="field-row">
       <div class="field" style="flex:0 0 170px"><label for="dmDemanda">Nº da demanda (SIM)</label><input type="text" id="dmDemanda" autocomplete="off" placeholder="ex: 2026/00123"></div>
+      <div class="field dm-urgente-campo" title="Urgente: não precisa esperar o orçamento para ser autorizada e iniciada"><label for="dmUrgente">Urgente</label><label class="dm-urgente"><input type="checkbox" id="dmUrgente"> Sim</label></div>
       <div class="field"><label for="dmEngenheiro">Engenheiro responsável</label><input type="text" id="dmEngenheiro" autocomplete="off"></div>
     </div>
     <div class="field"><label>Serviço (checklist)</label>
@@ -1533,11 +1539,12 @@ function slugify(name){
 const LOGIN_OPTIONS = [
   { key: 'admgeral', label: 'ADM Geral' },
   { key: 'consulta', label: 'Consulta' },
+  { key: 'subsecretario', label: 'Subsecretário - Geison' },
   { key: 'semed', label: 'Manutenção Própria' },
   ...COMPANIES.map(c => ({ key: slugify(c), label: c })),
 ];
 
-function startApp(zonasData, whoLabel, readonly, isAdmin, myCompany){
+function startApp(zonasData, whoLabel, readonly, isAdmin, myCompany, autorizador){
 zonas = zonasData;
 // a planilha na nuvem não tem a coluna "demanda" (só "demanda_final", que é
 // praticamente a mesma coisa) — preenche aqui pra não quebrar os gráficos
@@ -1548,7 +1555,9 @@ Object.values(zonas).forEach(rows => rows.forEach(r => {
 const IS_READONLY = !!readonly;
 const IS_ADMIN = !!isAdmin;
 const MY_COMPANY = myCompany || null; // null = SEMED ou Consulta (vê tudo); senão, é o nome da empresa logada
-document.getElementById('whoLabel').textContent = whoLabel + (readonly ? ' (somente consulta)' : '');
+// Subsecretário: consulta em tudo, mas autoriza (ou não) as demandas
+const IS_AUTORIZADOR = !!autorizador;
+document.getElementById('whoLabel').textContent = whoLabel + (IS_AUTORIZADOR ? ' (autorização de demandas)' : readonly ? ' (somente consulta)' : '');
 
 let zoneNames = Object.keys(zonas);
 
@@ -3734,7 +3743,8 @@ const dmNumero = d => /^(SIM|S|X|TRUE|VERDADEIRO)$/i.test(String(d.demanda || ''
 function dmAutRotulo(d){
   if(!dmTemDemanda(d)) return '';
   const a = d.autorizacao || 'Aguardando';
-  if(a === 'Aguardando') return d.orcamento == null ? 'Aguardando orçamento' : 'Aguardando autorização';
+  // urgente vai direto pra autorização, sem esperar o orçamento
+  if(a === 'Aguardando') return d.orcamento == null && !d.urgente ? 'Aguardando orçamento' : 'Aguardando autorização';
   return a;
 }
 const dmStatusRotulo = d => dmTemDemanda(d) ? (d.status || 'Não iniciado') : '';
@@ -3754,13 +3764,28 @@ function dmValor(s){
 const dmItens = d => d.servico_itens || [];
 const dmExecutor = (d, it) => String(it.emp || d.empresa || '').toUpperCase();
 const dmMinhaEmpresa = () => String(MY_COMPANY || '').toUpperCase();
-// antes da autorização, a empresa da demanda informa o orçamento; depois de autorizado,
-// cada empresa dá baixa nos itens que ela executa (a empresa de apoio só nos dela)
-const dmPodeOrcamento = d => !!MY_COMPANY && !IS_READONLY && dmTemDemanda(d) && !d.apoio
-  && d.autorizacao !== 'Autorizado' && String(d.empresa || '').toUpperCase() === dmMinhaEmpresa();
-const dmPodeBaixa = d => !!MY_COMPANY && !IS_READONLY && dmTemDemanda(d) && d.autorizacao === 'Autorizado'
+// Fluxo (as mesmas regras valem no Code.gs): o ADM cadastra; a empresa da demanda informa
+// o orçamento; o Subsecretário autoriza (sem orçamento, só se for urgente); depois de
+// autorizado — e com orçamento, a não ser que seja urgente — a empresa inicia o serviço,
+// muda o status e dá baixa nos itens dela (a empresa de apoio só dá baixa nos dela).
+const dmDona = d => !!MY_COMPANY && !d.apoio && String(d.empresa || '').toUpperCase() === dmMinhaEmpresa();
+const dmPodeExecutar = d => dmTemDemanda(d) && d.autorizacao === 'Autorizado' && (d.orcamento != null || !!d.urgente);
+const dmPodeOrcamento = d => !IS_READONLY && dmTemDemanda(d) && dmDona(d) && (d.autorizacao !== 'Autorizado' || d.orcamento == null);
+// serviço concluído: só o ADM reabre
+const dmPodeStatus = d => !IS_READONLY && dmDona(d) && dmPodeExecutar(d) && d.status !== 'Concluído';
+const dmPodeBaixa = d => !!MY_COMPANY && !IS_READONLY && dmPodeExecutar(d)
   && dmItens(d).some(it => !it.ok && dmExecutor(d, it) === dmMinhaEmpresa());
-const dmPodeAbrir = d => (IS_ADMIN && !IS_READONLY) || dmPodeOrcamento(d) || dmPodeBaixa(d);
+const dmPodeAutorizar = d => IS_AUTORIZADOR && dmTemDemanda(d);
+const dmPodeAbrir = d => (IS_ADMIN && !IS_READONLY) || dmPodeOrcamento(d) || dmPodeStatus(d) || dmPodeBaixa(d) || dmPodeAutorizar(d);
+// rótulo do botão de ação de cada demanda, conforme quem está logado
+function dmRotuloAcao(d){
+  if(IS_ADMIN && !IS_READONLY) return dmTemDemanda(d) ? '✎ Editar' : '+ Demanda';
+  if(dmPodeAutorizar(d)) return dmAutRotulo(d) === 'Aguardando autorização' ? 'Autorizar' : 'Ver autorização';
+  if(dmPodeStatus(d) && (d.status || 'Não iniciado') === 'Não iniciado') return 'Iniciar serviço';
+  if(dmPodeOrcamento(d)) return d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento';
+  if(dmPodeStatus(d) || dmPodeBaixa(d)) return 'Atualizar serviço';
+  return '';
+}
 // empresas de apoio de uma demanda (itens direcionados a outra empresa)
 const dmApoios = d => Array.from(new Set(dmItens(d).map(it => it.emp).filter(e => e && String(e).toUpperCase() !== String(d.empresa || '').toUpperCase())));
 // status do serviço pelo checklist (mesma regra do Code.gs: statusDmPelosItens_)
@@ -3834,14 +3859,14 @@ function dmFiltradas(){
   const busca = dmEl('searchBox').value.trim();
   const termo = normChave(busca).replace(/ /g, '');
   return dmLista.filter(d=>
-    (!dmF.demanda || (dmF.demanda === 'sim') === dmTemDemanda(d)) &&
+    (!dmF.demanda || (dmF.demanda === 'urgente' ? dmTemDemanda(d) && !!d.urgente : (dmF.demanda === 'sim') === dmTemDemanda(d))) &&
     (!dmF.aut || dmAutRotulo(d) === dmF.aut) &&
     (!dmF.status || dmStatusRotulo(d) === dmF.status) &&
     (!dmF.distrito || d.distrito === dmF.distrito) &&
     (!dmF.emp || d.empresa === dmF.emp) &&
     (!termo || normChave(d.nome).replace(/ /g, '').includes(termo) || String(d.sigeam) === busca
       || (dmNumero(d) && normChave(dmNumero(d)).replace(/ /g, '').includes(termo)))
-  ).sort((a,b)=> (dmTemDemanda(b) - dmTemDemanda(a)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  ).sort((a,b)=> (dmTemDemanda(b) - dmTemDemanda(a)) || ((!!b.urgente) - (!!a.urgente)) || a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 function renderDemandas(){
@@ -3871,9 +3896,10 @@ function dmRenderKb(){
       <div class="kb-sub">${sub}</div>
     </div>`;
   const locados = com.filter(dmLocado).length;
+  const urgentes = com.filter(d=> d.urgente).length;
   dmEl('dmKb').innerHTML = [
     card('Escolas com demanda', com.length, com.length === 1 ? 'escola' : 'escolas',
-      `<span class="dm-sub">${MY_COMPANY ? '' : 'de ' + dmLista.length + ' unidades da Sigeam · '}${locados} em prédio locado</span>`, true),
+      `<span class="dm-sub">${MY_COMPANY ? '' : 'de ' + dmLista.length + ' unidades da Sigeam · '}${locados} em prédio locado</span>${urgentes ? ` <button type="button" class="dm-pill" data-filtro="demanda" data-valor="urgente" style="background:#b5473f22;color:#b5473f">${urgentes} ${urgentes === 1 ? 'urgente' : 'urgentes'}</button>` : ''}`, true),
     card('Autorização', aut['Autorizado'] || 0, 'autorizadas', pills(DM_AUT_ROTULOS, aut, DM_AUT_COR, 'aut')),
     card('Status do serviço', st['Concluído'] || 0, 'concluídas', pills(DM_STATUS, st, DM_STATUS_COR, 'status')),
     card('Orçamentos', `<span style="font-size:1.45rem">${dmReal(soma(com)) || 'R$ 0,00'}</span>`, '',
@@ -3883,7 +3909,7 @@ function dmRenderKb(){
 
 function dmRenderTabela(lista){
   const tb = dmEl('dmTabela');
-  const temAcoes = (IS_ADMIN || MY_COMPANY) && !IS_READONLY;
+  const temAcoes = ((IS_ADMIN || MY_COMPANY) && !IS_READONLY) || IS_AUTORIZADOR;
   dmEl('dmThAcoes').textContent = temAcoes ? 'Ações' : '';
   if(!lista.length){
     tb.innerHTML = `<tr><td colspan="10" class="dm-vazio">${dmLista.length ? 'Nenhuma unidade com esses filtros.' : (MY_COMPANY ? 'Nenhuma demanda para a sua empresa.' : 'A aba Demandas está vazia.')}</td></tr>`;
@@ -3892,11 +3918,10 @@ function dmRenderTabela(lista){
   const traco = '<span class="dm-sem">—</span>';
   tb.innerHTML = lista.map((d, i)=>{
     const tem = dmTemDemanda(d);
-    const acao = IS_ADMIN && !IS_READONLY ? `<button class="dm-acao" data-i="${i}">${tem ? '✎ Editar' : '+ Demanda'}</button>`
-      : dmPodeOrcamento(d) ? `<button class="dm-acao" data-i="${i}">${d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento'}</button>`
-      : dmPodeBaixa(d) ? `<button class="dm-acao" data-i="${i}">Dar baixa</button>` : '';
+    const rotulo = dmPodeAbrir(d) ? dmRotuloAcao(d) : '';
+    const acao = rotulo ? `<button class="dm-acao" data-i="${i}">${escapeHtml(rotulo)}</button>` : '';
     return `<tr>
-      <td data-label="Escola"><div class="dm-escola">${escapeHtml(d.nome)}${!tem && dmF.demanda !== 'nao' ? ' <span class="tag none">sem demanda</span>' : ''}</div>
+      <td data-label="Escola"><div class="dm-escola">${tem && d.urgente ? '<span class="tag urgente">URGENTE</span> ' : ''}${escapeHtml(d.nome)}${!tem && dmF.demanda !== 'nao' ? ' <span class="tag none">sem demanda</span>' : ''}</div>
         <div class="dm-sub">SIGEAM ${escapeHtml(d.sigeam)} · ${escapeHtml(d.ensino)} · ${escapeHtml(d.distrito)}</div>
         ${d.endereco ? `<div class="dm-sub">${escapeHtml(d.endereco)}</div>` : ''}</td>
       <td data-label="Demanda SIM">${tem ? (dmNumero(d) ? `<b>${escapeHtml(dmNumero(d))}</b>` : '<span class="tag gap">sem nº</span>') : traco}</td>
@@ -3945,6 +3970,7 @@ function dmRenderMapa(lista){
     const cor = tem ? (DM_STATUS_COR[dmStatusRotulo(d)] || DM_STATUS_COR['Não iniciado']) : DM_SEM_DEMANDA_COR;
     const html = [
       `<b>${escapeHtml(d.nome)}</b>`,
+      tem && d.urgente ? '<div style="margin:2px 0 3px"><span class="tag urgente">URGENTE</span></div>' : '',
       `<div class="chmap-sub">SIGEAM ${escapeHtml(d.sigeam)} · ${escapeHtml(d.ensino)} · ${escapeHtml(d.distrito)}</div>`,
       tem ? `<div class="chmap-meta">Demanda SIM: <b>${escapeHtml(dmNumero(d) || 'sem nº')}</b></div>` : '',
       d.endereco ? `<div class="chmap-meta">${escapeHtml(d.endereco)}</div>` : '',
@@ -3953,7 +3979,7 @@ function dmRenderMapa(lista){
              <div class="chmap-meta">${escapeHtml(d.empresa || 'Sem empresa')}${d.orcamento != null ? ' · ' + dmReal(d.orcamento) : ''}${d.engenheiro ? ' · Eng. ' + escapeHtml(d.engenheiro) : ''}</div>
              <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">${dmPill(dmAutRotulo(d), DM_AUT_COR[dmAutRotulo(d)])}${dmPill(dmStatusRotulo(d), DM_STATUS_COR[dmStatusRotulo(d)])}</div>`
           : '<div class="chmap-meta">Sem demanda</div>',
-      dmPodeAbrir(d) ? `<button class="popup-detail-btn" data-i="${i}">${IS_ADMIN ? (tem ? 'Editar demanda' : 'Registrar demanda') : (dmPodeOrcamento(d) ? (d.orcamento == null ? 'Informar orçamento' : 'Alterar orçamento') : 'Dar baixa nos itens')}</button>` : ''
+      dmPodeAbrir(d) ? `<button class="popup-detail-btn" data-i="${i}">${escapeHtml(dmRotuloAcao(d).replace(/^✎ /, ''))}</button>` : ''
     ].join('');
     L.circleMarker([d.lat, d.lon], { radius: tem ? 8 : 5, color: '#ffffff', weight: 1.5, fillColor: cor, fillOpacity: tem ? 0.95 : 0.75 })
       .bindPopup(html, { maxWidth: 300, minWidth: 220 })
@@ -3983,24 +4009,28 @@ function dmRenderMapa(lista){
     dmF[chave] = e.target.value;
     if(chave === 'demanda') safeSet('tre_dm_demanda', dmF.demanda || 'todas');
     // autorização e status só existem em quem tem demanda
-    if((chave === 'aut' || chave === 'status') && dmF[chave] && dmF.demanda === 'nao'){ dmF.demanda = 'sim'; dmEl('dmFiltroDemanda').value = 'sim'; }
+    if((chave === 'aut' || chave === 'status') && dmF[chave] && (dmF.demanda === 'nao')){ dmF.demanda = 'sim'; dmEl('dmFiltroDemanda').value = 'sim'; }
     renderDemandas();
   });
 });
 dmEl('dmKb').addEventListener('click', (e)=>{
   const b = e.target.closest('button[data-filtro]');
   if(!b) return;
-  dmF[b.dataset.filtro] = b.dataset.valor;
-  dmF.demanda = 'sim';
-  dmEl(b.dataset.filtro === 'aut' ? 'dmFiltroAut' : 'dmFiltroStatus').value = b.dataset.valor;
-  dmEl('dmFiltroDemanda').value = 'sim';
+  if(b.dataset.filtro === 'demanda'){
+    dmF.demanda = b.dataset.valor; // "urgentes"
+  } else {
+    dmF[b.dataset.filtro] = b.dataset.valor;
+    dmEl(b.dataset.filtro === 'aut' ? 'dmFiltroAut' : 'dmFiltroStatus').value = b.dataset.valor;
+    if(dmF.demanda !== 'urgente') dmF.demanda = 'sim';
+  }
+  dmEl('dmFiltroDemanda').value = dmF.demanda;
   renderDemandas();
 });
 
 // ---- formulário (ADM: tudo; empresa: só o orçamento) ----
 const dmModal = dmEl('dmModalOverlay');
-dmEl('dmAutorizacao').innerHTML = DM_AUTORIZACAO.map(s=> `<option>${s}</option>`).join('');
-dmEl('dmStatus').innerHTML = DM_STATUS.map(s=> `<option>${s}</option>`).join('');
+dmEl('dmAutorizacao').innerHTML = DM_AUTORIZACAO.map(s=> `<option value="${s}">${s}</option>`).join('');
+dmEl('dmStatus').innerHTML = DM_STATUS.map(s=> `<option value="${s}">${s}</option>`).join('');
 // empresa escolhida numa lista (o nome tem que bater com o login da empresa); um nome antigo fora da lista aparece também
 function dmOpcoesEmpresa(atual){
   const nomes = DM_EMPRESAS.slice();
@@ -4008,7 +4038,9 @@ function dmOpcoesEmpresa(atual){
   dmEl('dmEmpresa').innerHTML = '<option value="">— escolha a empresa —</option>' + nomes.map(e=> `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
   dmEl('dmEmpresa').value = atual || '';
 }
-const DM_CAMPOS_ADM = ['dmDemanda', 'dmEngenheiro', 'dmEmpresa', 'dmAutorizacao', 'dmStatus', 'dmObs'];
+const DM_CAMPOS_ADM = ['dmDemanda', 'dmUrgente', 'dmEngenheiro', 'dmEmpresa', 'dmStatus', 'dmObs'];
+const DM_CAMPOS_TODOS = DM_CAMPOS_ADM.concat(['dmOrcamento', 'dmAutorizacao']);
+let dmPapel = 'adm'; // quem está com o formulário aberto: 'adm', 'sub' (Subsecretário) ou 'empresa'
 
 // ADM: o status do serviço acompanha o checklist (todos marcados = Concluído;
 // algum = Em andamento; Paralisado é escolha manual). Os status que não combinam
@@ -4031,19 +4063,28 @@ dmEl('dmAddItem').addEventListener('click', ()=>{
   nova.children[1].focus();
   dmAtualizarChecklist();
 });
-// escolher "Concluído" marca todos os itens
+// ADM: escolher "Concluído" marca todos os itens
 dmEl('dmStatus').addEventListener('change', ()=>{
+  if(dmPapel !== 'adm') return;
   if(dmEl('dmStatus').value === 'Concluído') dmEl('dmItens').querySelectorAll('input[type="checkbox"]').forEach(cb=> cb.checked = true);
   dmAtualizarChecklist();
 });
+// orçamento sempre no formato brasileiro (12.500,00) ao sair do campo
+dmEl('dmOrcamento').addEventListener('blur', ()=>{
+  const n = dmValor(dmEl('dmOrcamento').value);
+  if(n !== null && !Number.isNaN(n)) dmEl('dmOrcamento').value = n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+});
 
-// empresa: lista dos itens; só dá pra marcar os dela, ainda não feitos, depois de autorizado
-function dmMontarItensEmpresa(d){
-  const autorizado = d.autorizacao === 'Autorizado';
+// lista dos itens pra quem não é ADM: a empresa marca os dela (ainda não feitos) quando o
+// serviço pode andar; o Subsecretário só vê
+function dmMontarItensVer(d){
+  const anda = dmPodeExecutar(d);
   dmEl('dmItensVer').innerHTML = dmItens(d).map((it, k)=>{
-    const minha = dmExecutor(d, it) === dmMinhaEmpresa();
-    const pode = autorizado && minha && !it.ok;
-    const dica = it.ok ? '' : !minha ? ` title="Item da empresa ${escapeHtml(dmExecutor(d, it))}"` : !autorizado ? ' title="Dá pra dar baixa depois que o ADM autorizar a execução"' : '';
+    const minha = !!MY_COMPANY && dmExecutor(d, it) === dmMinhaEmpresa();
+    const pode = dmPapel === 'empresa' && anda && minha && !it.ok;
+    const dica = it.ok || dmPapel !== 'empresa' ? '' : !minha ? ` title="Item da empresa ${escapeHtml(dmExecutor(d, it))}"`
+      : d.autorizacao !== 'Autorizado' ? ' title="Dá pra dar baixa depois que o Subsecretário autorizar a execução"'
+      : !anda ? ' title="Informe o orçamento antes de iniciar o serviço"' : '';
     const meta = it.ok && it.por ? `<span class="ck-meta">✓ ${escapeHtml(it.por)}${it.em ? ' · ' + escapeHtml(it.em) : ''}</span>` : '';
     const tag = it.emp && dmExecutor(d, it) !== String(d.empresa || '').toUpperCase() ? `<span class="ck-emp">${escapeHtml(it.emp)}</span>` : '';
     return `<li><label class="ck-item${it.ok ? ' ok' : ''}${pode ? '' : ' travado'}"${dica}>`
@@ -4052,45 +4093,73 @@ function dmMontarItensEmpresa(d){
   }).join('') || '<li class="dm-sub">Nenhum item cadastrado.</li>';
 }
 
-const dmTextoBotao = ()=> IS_ADMIN ? 'Salvar' : 'Enviar';
+const dmTextoBotao = ()=> dmPapel === 'adm' ? 'Salvar' : dmPapel === 'sub' ? 'Salvar autorização' : 'Enviar';
 function abrirDemanda(d){
   if(!d || !dmPodeAbrir(d)) return;
   dmEditando = d;
+  dmPapel = IS_ADMIN && !IS_READONLY ? 'adm' : dmPodeAutorizar(d) ? 'sub' : 'empresa';
   const tem = dmTemDemanda(d);
-  const podeOrc = dmPodeOrcamento(d);
-  dmEl('dmModalTitle').textContent = IS_ADMIN ? (tem ? 'Editar demanda' : 'Registrar demanda') : (podeOrc ? 'Informar orçamento' : 'Dar baixa nos itens');
+  const podeOrc = dmPapel === 'empresa' && dmPodeOrcamento(d);
+  const podeStatus = dmPapel === 'empresa' && dmPodeStatus(d);
+  const statusAtual = d.status || 'Não iniciado';
+  dmEl('dmModalTitle').textContent = dmPapel === 'adm' ? (tem ? 'Editar demanda' : 'Registrar demanda')
+    : dmPapel === 'sub' ? 'Autorização da demanda'
+    : podeOrc && !podeStatus ? 'Informar orçamento' : podeStatus && statusAtual === 'Não iniciado' ? 'Iniciar serviço' : 'Atualizar serviço';
   dmEl('dmModalSub').textContent = d.atualizado_em ? 'Última atualização: ' + d.atualizado_em + (d.atualizado_por ? ' por ' + d.atualizado_por : '') : '';
-  dmEl('dmEscola').textContent = d.nome;
+  dmEl('dmEscola').textContent = d.nome + (tem && d.urgente ? '  ·  URGENTE' : '');
   dmEl('dmEscolaMeta').textContent = ['SIGEAM ' + d.sigeam, d.ensino, d.distrito, d.imovel ? 'Imóvel: ' + d.imovel : ''].filter(Boolean).join(' · ');
   dmEl('dmDemanda').value = d.demanda || '';
+  dmEl('dmUrgente').checked = !!d.urgente;
   dmEl('dmEngenheiro').value = d.engenheiro || '';
   dmOpcoesEmpresa(String(d.empresa || '').toUpperCase());
   dmEl('dmOrcamento').value = d.orcamento == null ? '' : Number(d.orcamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   dmEl('dmAutorizacao').value = d.autorizacao || 'Aguardando';
-  dmEl('dmStatus').value = d.status || 'Não iniciado';
+  dmEl('dmStatus').value = statusAtual;
   dmEl('dmObs').value = d.obs || '';
-  DM_CAMPOS_ADM.forEach(id=> dmEl(id).disabled = !IS_ADMIN);
-  dmEl('dmOrcamento').disabled = !(IS_ADMIN || podeOrc);
-  // serviço: o ADM edita o checklist; a empresa vê a lista e dá baixa nos itens dela
-  dmEl('dmItensEditor').style.display = IS_ADMIN ? '' : 'none';
-  dmEl('dmObsCampo').style.display = IS_ADMIN || d.obs ? '' : 'none';
-  if(IS_ADMIN){
+  // cada perfil só mexe no que é dele
+  DM_CAMPOS_TODOS.forEach(id=> dmEl(id).disabled = true);
+  Array.from(dmEl('dmStatus').options).forEach(o=> o.disabled = false);
+  Array.from(dmEl('dmAutorizacao').options).forEach(o=> o.disabled = false);
+  if(dmPapel === 'adm'){
+    DM_CAMPOS_ADM.forEach(id=> dmEl(id).disabled = false);
+    dmEl('dmOrcamento').disabled = false; // a autorização é do Subsecretário
+  } else if(dmPapel === 'sub'){
+    dmEl('dmAutorizacao').disabled = false;
+    // sem orçamento só dá pra autorizar se for urgente
+    dmEl('dmAutorizacao').querySelector('option[value="Autorizado"]').disabled = d.orcamento == null && !d.urgente && d.autorizacao !== 'Autorizado';
+  } else {
+    dmEl('dmOrcamento').disabled = !podeOrc;
+    dmEl('dmStatus').disabled = !podeStatus;
+    if(podeStatus){
+      // a empresa inicia, paralisa ou conclui; não volta pra "Não iniciado"
+      dmEl('dmStatus').querySelector('option[value="Não iniciado"]').disabled = true;
+      if(statusAtual === 'Não iniciado') dmEl('dmStatus').value = 'Em andamento'; // "Iniciar serviço"
+    }
+  }
+  // serviço: o ADM edita o checklist; os outros veem a lista (a empresa dá baixa nos itens dela)
+  dmEl('dmItensEditor').style.display = dmPapel === 'adm' ? '' : 'none';
+  dmEl('dmObsCampo').style.display = dmPapel === 'adm' || d.obs ? '' : 'none';
+  if(dmPapel === 'adm'){
     dmEl('dmItensVer').innerHTML = '';
     montarChecklistForm('dm', dmItens(d));
   } else {
-    dmMontarItensEmpresa(d);
+    dmMontarItensVer(d);
   }
-  dmEl('dmDica').textContent = IS_ADMIN
-    ? 'Com o nº da demanda SIM preenchido, a escola passa a ter demanda e a empresa escolhida vê no login dela (um item direcionado a outra empresa faz a demanda aparecer pra ela também, só com esse item). A empresa informa o orçamento; depois de ver o valor, autorize ou não a execução. Depois de autorizado, as empresas dão baixa nos itens.'
-    : podeOrc
-      ? 'Depois de enviado, o ADM Geral autoriza ou não a execução.' + (d.autorizacao === 'Não autorizado' ? ' O orçamento anterior não foi autorizado: um valor novo volta para a análise do ADM.' : '')
-      : 'Marque os itens que sua empresa concluiu. Só o ADM Geral pode desmarcar depois.';
+  dmEl('dmDica').textContent = dmPapel === 'adm'
+    ? 'Com o nº da demanda SIM preenchido, a escola passa a ter demanda e a empresa escolhida vê no login dela. Por padrão a demanda aguarda o orçamento da empresa; marque "Urgente" quando não der pra esperar. Quem autoriza é o Subsecretário. Depois de autorizado, a empresa inicia o serviço e dá baixa nos itens.'
+    : dmPapel === 'sub'
+      ? (d.orcamento == null && !d.urgente ? 'Essa demanda ainda não tem orçamento: só dá pra autorizar demanda urgente.' : 'Autorize ou não a execução. Depois de autorizado, a empresa pode iniciar o serviço.')
+      : podeOrc && podeStatus ? 'Demanda urgente já autorizada: informe o orçamento assim que tiver. Dá pra iniciar o serviço e dar baixa nos itens.'
+      : podeOrc ? 'Depois de enviado, o Subsecretário autoriza ou não a execução.' + (d.autorizacao === 'Não autorizado' ? ' O orçamento anterior não foi autorizado: um valor novo volta para a análise.' : '')
+      : 'Atualize o status do serviço e marque os itens que sua empresa concluiu. Só o ADM Geral pode desmarcar depois.';
   dmEl('dmErro').style.display = 'none';
   const btn = dmEl('dmSalvar');
   btn.disabled = false; btn.textContent = dmTextoBotao();
   dmModal.classList.add('open');
   setTimeout(()=>{
-    const alvo = IS_ADMIN ? dmEl(tem ? 'dmEngenheiro' : 'dmDemanda') : (podeOrc ? dmEl('dmOrcamento') : dmEl('dmItensVer').querySelector('input:not(:disabled)'));
+    const alvo = dmPapel === 'adm' ? dmEl(tem ? 'dmEngenheiro' : 'dmDemanda')
+      : dmPapel === 'sub' ? dmEl('dmAutorizacao')
+      : podeOrc ? dmEl('dmOrcamento') : podeStatus ? dmEl('dmStatus') : dmEl('dmItensVer').querySelector('input:not(:disabled)');
     if(alvo) alvo.focus();
   }, 50);
 }
@@ -4107,28 +4176,35 @@ dmEl('dmSalvar').onclick = async ()=>{
   const orc = dmEl('dmOrcamento').disabled ? null : dmValor(dmEl('dmOrcamento').value);
   if(Number.isNaN(orc)) return falha('Valor do orçamento inválido. Use, por exemplo, 12.500,00.', dmEl('dmOrcamento'));
   let dados;
-  if(IS_ADMIN){
+  if(dmPapel === 'adm'){
     const itens = itensDoForm('dm');
-    dados = { sigeam: d.sigeam, demanda: dmEl('dmDemanda').value.trim(), engenheiro: dmEl('dmEngenheiro').value.trim(),
-      servico_itens: itens, servico: itens.map(i=> i.t).join('\n'), empresa: dmEl('dmEmpresa').value,
-      orcamento: orc === null ? '' : orc, autorizacao: dmEl('dmAutorizacao').value, status: dmEl('dmStatus').value,
+    dados = { sigeam: d.sigeam, demanda: dmEl('dmDemanda').value.trim(), urgente: dmEl('dmUrgente').checked,
+      engenheiro: dmEl('dmEngenheiro').value.trim(), servico_itens: itens, servico: itens.map(i=> i.t).join('\n'),
+      empresa: dmEl('dmEmpresa').value, orcamento: orc === null ? '' : orc, status: dmEl('dmStatus').value,
       obs: dmEl('dmObs').value.trim() };
     // sem o nº da demanda SIM a escola não tem demanda
     if(!dados.demanda){
       if(!dmTemDemanda(d)) return falha('Informe o nº da demanda no SIM.', dmEl('dmDemanda'));
       if(!confirm('Sem o nº da demanda SIM, a escola "' + d.nome + '" deixa de ter demanda (sai da lista "Com demanda" e do login da empresa).\n\nContinuar?')) return;
     }
+  } else if(dmPapel === 'sub'){
+    dados = { sigeam: d.sigeam, autorizacao: dmEl('dmAutorizacao').value };
   } else {
-    // empresa: orçamento (antes da autorização) e/ou baixa nos itens dela (depois)
+    // empresa: orçamento, status do serviço e/ou baixa nos itens dela
     const baixas = Array.from(dmEl('dmItensVer').querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')).map(cb=>{
       const it = dmItens(d)[Number(cb.dataset.k)];
       return { i: it.i !== undefined ? it.i : Number(cb.dataset.k), t: it.t };
     });
-    if(dmPodeOrcamento(d) && orc === null) return falha('Informe o valor do orçamento.', dmEl('dmOrcamento'));
-    if(!dmPodeOrcamento(d) && !baixas.length) return falha('Marque os itens que sua empresa concluiu.');
-    if(baixas.length && !confirm('Confirma que ' + (baixas.length === 1 ? 'este item foi feito' : 'estes ' + baixas.length + ' itens foram feitos') + '?\n\nSó o ADM Geral pode desmarcar depois.')) return;
+    const novoStatus = !dmEl('dmStatus').disabled && dmEl('dmStatus').value !== (d.status || 'Não iniciado') ? dmEl('dmStatus').value : '';
+    if(dmPodeOrcamento(d) && !dmPodeStatus(d) && orc === null) return falha('Informe o valor do orçamento.', dmEl('dmOrcamento'));
+    if(orc === null && !novoStatus && !baixas.length) return falha('Nada pra salvar: mude o status do serviço ou marque os itens que sua empresa concluiu.');
+    if((baixas.length || novoStatus === 'Concluído') && !confirm((novoStatus === 'Concluído'
+        ? 'Concluir o serviço marca como feitos todos os itens da sua empresa.'
+        : 'Confirma que ' + (baixas.length === 1 ? 'este item foi feito' : 'estes ' + baixas.length + ' itens foram feitos') + '?')
+        + '\n\nSó o ADM Geral pode desmarcar depois.')) return;
     dados = { sigeam: d.sigeam };
-    if(dmPodeOrcamento(d)) dados.orcamento = orc;
+    if(orc !== null) dados.orcamento = orc;
+    if(novoStatus) dados.status = novoStatus;
     if(baixas.length) dados.itens_ok = baixas;
   }
   const btn = dmEl('dmSalvar');
@@ -4150,10 +4226,10 @@ dmEl('dmSalvar').onclick = async ()=>{
 // ---- exportar (o que está na tabela) ----
 dmEl('dmExport').onclick = ()=>{
   const lista = dmFiltradas();
-  const cab = ['SIGEAM','Ensino','Escola','Distrito','Endereço','Imóvel','Prédio locado','Demanda SIM','Engenheiro responsável','Serviço','Observações','Empresa',
+  const cab = ['SIGEAM','Ensino','Escola','Distrito','Endereço','Imóvel','Prédio locado','Demanda SIM','Urgente','Engenheiro responsável','Serviço','Observações','Empresa',
     'Orçamento (R$)','Status da autorização','Status do serviço','Atualizado em','Atualizado por'];
   const linhas = [cab.map(csvEscape).join(';')].concat(lista.map(d=> [d.sigeam, d.ensino, d.nome, d.distrito, d.endereco, d.imovel,
-    dmLocado(d) ? 'Sim' : 'Não', dmTemDemanda(d) ? (dmNumero(d) || 'sem nº') : '', d.engenheiro,
+    dmLocado(d) ? 'Sim' : 'Não', dmTemDemanda(d) ? (dmNumero(d) || 'sem nº') : '', dmTemDemanda(d) && d.urgente ? 'Sim' : '', d.engenheiro,
     dmItens(d).map(it=> (it.ok ? '[x] ' : '[ ] ') + it.t + (it.emp && dmExecutor(d, it) !== String(d.empresa || '').toUpperCase() ? ' (' + it.emp + ')' : '')).join(' | '),
     String(d.obs || '').split(String.fromCharCode(10)).map(x=> x.trim()).filter(Boolean).join(' | '), d.empresa,
     d.orcamento == null ? '' : Number(d.orcamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -4229,7 +4305,7 @@ async function enterAppWithSession(session, role){
   bootLoading.style.display = 'none';
   loginOverlay.style.display = 'none';
   appRoot.style.display = 'block';
-  startApp(fullData, role.label, role.readonly, role.admin, role.company);
+  startApp(fullData, role.label, role.readonly, role.admin, role.company, role.autorizador);
   lastDataSnapshot = dataSnapshot_(fullData); // já normalizado pelo startApp, pra comparar direito depois
 }
 
@@ -4256,7 +4332,7 @@ async function tryLogin(){
     loginBtn.textContent = 'Entrar';
     return;
   }
-  const role = { label: result.label, admin: result.admin, readonly: result.readonly, company: result.company };
+  const role = { label: result.label, admin: result.admin, readonly: result.readonly, company: result.company, autorizador: result.autorizador };
   safeSet('tre_session', JSON.stringify({ session: result.session, role }));
   loginBtn.textContent = 'Carregando...';
   await enterAppWithSession(result.session, role);
