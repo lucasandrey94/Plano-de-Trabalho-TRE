@@ -58,6 +58,19 @@ Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, 
 - Quem muda o status: o ADM em qualquer chamado. A empresa (inclusive `semed`, empresa SEMED) só nos chamados dela, só para `Em andamento` ou `Concluído`, e não reabre chamado concluído. A regra existe no `index.html` (o que aparece) e no `Code.gs` (o que vale).
 - Todas as colunas com formato texto, para não perder zero à esquerda da seção (ex: 0412).
 
+## Planilha — aba Demandas (tela "Acompanhar demandas")
+
+Tela própria (3ª opção do "Visualizar" do topo), **sem relação com Escolas nem com Chamados**. A aba foi criada importando o `Demandas.csv` gerado da aba **Sigeam** do arquivo `sigeam.xlsx` (570 unidades). Colunas, achadas pelo nome do cabeçalho (sem acento, sem diferença de maiúsculas):
+
+`SIGEAM, ENSINO, NOME ESCOLA, LATITUDE, LONGITUDE, IMÓVEL, ENDEREÇO, DISTRITO` (base da Sigeam) + `DEMANDA, ENGENHEIRO, SERVIÇO, EMPRESA, ORÇAMENTO, STATUS AUTORIZAÇÃO, STATUS SERVIÇO, ATUALIZADO EM, ATUALIZADO POR` (acompanhamento; as que faltarem o Apps Script cria no fim).
+
+- `DEMANDA` = `SIM` (digitado no site pelo ADM ou direto na planilha; `sim`, `S`, `X` e caixa marcada também valem) ou `NÃO`. Por padrão a tela mostra só as unidades com demanda; o filtro "Todas as unidades" mostra as 570.
+- Fluxo: o ADM registra a demanda (engenheiro responsável digitado, serviço, empresa) → a **empresa** informa o **orçamento** pelo login dela → o ADM **autoriza ou não** (`STATUS AUTORIZAÇÃO`: `Aguardando`, `Autorizado`, `Não autorizado`) e acompanha o `STATUS SERVIÇO` (`Não iniciado`, `Em andamento`, `Paralisado`, `Concluído`). Na tela, "Aguardando" aparece como "Aguardando orçamento" (sem valor) ou "Aguardando autorização" (com valor).
+- Quem edita (regra no `Code.gs`, ação `demanda-salvar`): ADM tudo; empresa só o orçamento das demandas dela e só enquanto não estiver `Autorizado` — orçamento novo depois de `Não autorizado` volta para `Aguardando`; consulta só vê. A empresa só recebe as demandas com `DEMANDA = SIM` e `EMPRESA` igual ao `company` do login (`listDemandas_`).
+- `ORÇAMENTO` gravado como número (formato `#,##0.00`); textos como `1.234,56` digitados na planilha também são lidos. "Prédio locado" = `IMÓVEL` igual a `LOCADO`.
+- Coordenadas: o CSV usa vírgula decimal (planilha em português). O Apps Script lê número ou texto com vírgula/ponto e descarta valores fora do Amazonas.
+- Endpoints: `demandas-listar` (inclusive consulta) e `demanda-salvar`.
+
 ## Regras de dados que já causaram bugs
 
 - **Planilha em português (vírgula decimal).** Nunca gravar coordenada como texto: ponto vira separador de milhar (`-60.025357` vira `-60025357`). O Apps Script converte com `parseCoord_()` antes de gravar. Para escrever pela API do Sheets, use valores numéricos com `valueInputOption: RAW`, nunca `USER_ENTERED` com ponto.
