@@ -336,7 +336,7 @@
   .dm-kb .kb-sub button:hover{ filter:brightness(1.1); text-decoration:underline; }
   .dm-pill{ font-family:-apple-system,"Segoe UI",sans-serif; font-size:0.78rem; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; display:inline-block; }
   #dmMap{ height:520px; border-radius:6px; z-index:1; }
-  .dm-table{ min-width:1120px; }
+  .dm-table{ min-width:1220px; }
   .dm-table th{ cursor:default; }
   .dm-table th:hover{ color:var(--muted); }
   .dm-escola{ font-weight:650; }
@@ -1281,10 +1281,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="tablewrap">
     <table class="dm-table">
       <thead><tr>
-        <th>Escola</th><th>Prédio locado</th><th>Engenheiro responsável</th><th>Serviço</th>
+        <th>Escola</th><th>Demanda SIM</th><th>Prédio locado</th><th>Engenheiro responsável</th><th>Serviço</th>
         <th>Empresa</th><th>Orçamento</th><th>Autorização</th><th>Status do serviço</th><th id="dmThAcoes"></th>
       </tr></thead>
-      <tbody id="dmTabela"><tr><td colspan="9" class="dm-vazio">Carregando demandas…</td></tr></tbody>
+      <tbody id="dmTabela"><tr><td colspan="10" class="dm-vazio">Carregando demandas…</td></tr></tbody>
     </table>
   </div>
 </section>
@@ -1428,12 +1428,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="modal-meta" id="dmModalSub"></div>
     <div class="ch-school-box"><div class="nm" id="dmEscola"></div><div class="mt" id="dmEscolaMeta"></div></div>
     <div class="field-row">
-      <div class="field" style="flex:0 0 110px"><label for="dmDemanda">Demanda</label><select id="dmDemanda"><option value="SIM">SIM</option><option value="NÃO">NÃO</option></select></div>
+      <div class="field" style="flex:0 0 170px"><label for="dmDemanda">Nº da demanda (SIM)</label><input type="text" id="dmDemanda" autocomplete="off" placeholder="ex: 2026/00123"></div>
       <div class="field"><label for="dmEngenheiro">Engenheiro responsável</label><input type="text" id="dmEngenheiro" autocomplete="off"></div>
     </div>
     <div class="field"><label for="dmServico">Serviço</label><textarea id="dmServico" rows="3" placeholder="ex: Troca do telhado do bloco B"></textarea></div>
     <div class="field-row">
-      <div class="field"><label for="dmEmpresa">Empresa</label><input type="text" id="dmEmpresa" list="dmEmpresasLista" autocomplete="off" placeholder="ex: PAIVA"><datalist id="dmEmpresasLista"></datalist></div>
+      <div class="field"><label for="dmEmpresa">Empresa</label><select id="dmEmpresa"></select></div>
       <div class="field"><label for="dmOrcamento">Orçamento (R$)</label><input type="text" id="dmOrcamento" inputmode="decimal" autocomplete="off" placeholder="ex: 12.500,00"></div>
     </div>
     <div class="field-row">
@@ -3709,7 +3709,10 @@ const dmF = { demanda: null, aut:'', status:'', distrito:'', emp:'' };
 (function(){ const s = safeGet('tre_dm_demanda'); if(s !== null) dmF.demanda = s === 'todas' ? '' : s; })();
 
 const dmEl = id => document.getElementById(id);
-const dmTemDemanda = d => d.demanda === 'SIM';
+// "demanda" = nº da demanda no sistema SIM; preenchido = a unidade tem demanda
+const dmTemDemanda = d => !!d.demanda;
+// "SIM"/"X" digitado na planilha (antes do campo virar o nº) = demanda sem número
+const dmNumero = d => /^(SIM|S|X|TRUE|VERDADEIRO)$/i.test(String(d.demanda || '').trim()) ? '' : String(d.demanda || '');
 function dmAutRotulo(d){
   if(!dmTemDemanda(d)) return '';
   const a = d.autorizacao || 'Aguardando';
@@ -3754,7 +3757,7 @@ async function carregarDemandas(silent){
     } catch(e){
       const msg = String(e.message || e).replace(/^Error:\s*/, '');
       if(dmLista === null){
-        dmEl('dmTabela').innerHTML = `<tr><td colspan="9" class="dm-vazio">Não deu pra carregar as demandas: ${escapeHtml(msg)}</td></tr>`;
+        dmEl('dmTabela').innerHTML = `<tr><td colspan="10" class="dm-vazio">Não deu pra carregar as demandas: ${escapeHtml(msg)}</td></tr>`;
       } else if(!silent){
         dmAviso('Não deu pra atualizar as demandas (' + msg + '). O que aparece abaixo pode estar desatualizado.');
       }
@@ -3790,7 +3793,8 @@ function dmFiltradas(){
     (!dmF.status || dmStatusRotulo(d) === dmF.status) &&
     (!dmF.distrito || d.distrito === dmF.distrito) &&
     (!dmF.emp || d.empresa === dmF.emp) &&
-    (!termo || normChave(d.nome).replace(/ /g, '').includes(termo) || String(d.sigeam) === busca)
+    (!termo || normChave(d.nome).replace(/ /g, '').includes(termo) || String(d.sigeam) === busca
+      || (dmNumero(d) && normChave(dmNumero(d)).replace(/ /g, '').includes(termo)))
   ).sort((a,b)=> (dmTemDemanda(b) - dmTemDemanda(a)) || a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
@@ -3836,7 +3840,7 @@ function dmRenderTabela(lista){
   const temAcoes = (IS_ADMIN || MY_COMPANY) && !IS_READONLY;
   dmEl('dmThAcoes').textContent = temAcoes ? 'Ações' : '';
   if(!lista.length){
-    tb.innerHTML = `<tr><td colspan="9" class="dm-vazio">${dmLista.length ? 'Nenhuma unidade com esses filtros.' : (MY_COMPANY ? 'Nenhuma demanda para a sua empresa.' : 'A aba Demandas está vazia.')}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10" class="dm-vazio">${dmLista.length ? 'Nenhuma unidade com esses filtros.' : (MY_COMPANY ? 'Nenhuma demanda para a sua empresa.' : 'A aba Demandas está vazia.')}</td></tr>`;
     return;
   }
   const traco = '<span class="dm-sem">—</span>';
@@ -3848,6 +3852,7 @@ function dmRenderTabela(lista){
       <td data-label="Escola"><div class="dm-escola">${escapeHtml(d.nome)}${!tem && dmF.demanda !== 'nao' ? ' <span class="tag none">sem demanda</span>' : ''}</div>
         <div class="dm-sub">SIGEAM ${escapeHtml(d.sigeam)} · ${escapeHtml(d.ensino)} · ${escapeHtml(d.distrito)}</div>
         ${d.endereco ? `<div class="dm-sub">${escapeHtml(d.endereco)}</div>` : ''}</td>
+      <td data-label="Demanda SIM">${tem ? (dmNumero(d) ? `<b>${escapeHtml(dmNumero(d))}</b>` : '<span class="tag gap">sem nº</span>') : traco}</td>
       <td data-label="Prédio locado">${dmLocado(d) ? '<span class="tag media">Sim</span>' : `<span class="tag none">Não</span>${d.imovel ? `<div class="dm-sub">${escapeHtml(d.imovel)}</div>` : ''}`}</td>
       <td data-label="Engenheiro responsável">${tem && d.engenheiro ? escapeHtml(d.engenheiro) : traco}</td>
       <td data-label="Serviço"><div class="dm-servico">${tem && d.servico ? escapeHtml(d.servico) : traco}</div></td>
@@ -3892,6 +3897,7 @@ function dmRenderMapa(lista){
     const html = [
       `<b>${escapeHtml(d.nome)}</b>`,
       `<div class="chmap-sub">SIGEAM ${escapeHtml(d.sigeam)} · ${escapeHtml(d.ensino)} · ${escapeHtml(d.distrito)}</div>`,
+      tem ? `<div class="chmap-meta">Demanda SIM: <b>${escapeHtml(dmNumero(d) || 'sem nº')}</b></div>` : '',
       d.endereco ? `<div class="chmap-meta">${escapeHtml(d.endereco)}</div>` : '',
       `<div class="chmap-meta">Imóvel: ${escapeHtml(d.imovel || '—')}${dmLocado(d) ? ' (prédio locado)' : ''}</div>`,
       tem ? `<div class="chmap-desc">${escapeHtml(d.servico || 'Serviço não informado')}</div>
@@ -3946,7 +3952,13 @@ dmEl('dmKb').addEventListener('click', (e)=>{
 const dmModal = dmEl('dmModalOverlay');
 dmEl('dmAutorizacao').innerHTML = DM_AUTORIZACAO.map(s=> `<option>${s}</option>`).join('');
 dmEl('dmStatus').innerHTML = DM_STATUS.map(s=> `<option>${s}</option>`).join('');
-dmEl('dmEmpresasLista').innerHTML = DM_EMPRESAS.map(e=> `<option value="${escapeHtml(e)}">`).join('');
+// empresa escolhida numa lista (o nome tem que bater com o login da empresa); um nome antigo fora da lista aparece também
+function dmOpcoesEmpresa(atual){
+  const nomes = DM_EMPRESAS.slice();
+  if(atual && !nomes.includes(atual)) nomes.push(atual);
+  dmEl('dmEmpresa').innerHTML = '<option value="">— escolha a empresa —</option>' + nomes.map(e=> `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
+  dmEl('dmEmpresa').value = atual || '';
+}
 const DM_CAMPOS_ADM = ['dmDemanda', 'dmEngenheiro', 'dmServico', 'dmEmpresa', 'dmAutorizacao', 'dmStatus'];
 const dmTextoBotao = ()=> IS_ADMIN ? 'Salvar' : 'Enviar orçamento';
 function abrirDemanda(d){
@@ -3957,23 +3969,23 @@ function abrirDemanda(d){
   dmEl('dmModalSub').textContent = d.atualizado_em ? 'Última atualização: ' + d.atualizado_em + (d.atualizado_por ? ' por ' + d.atualizado_por : '') : '';
   dmEl('dmEscola').textContent = d.nome;
   dmEl('dmEscolaMeta').textContent = ['SIGEAM ' + d.sigeam, d.ensino, d.distrito, d.imovel ? 'Imóvel: ' + d.imovel : ''].filter(Boolean).join(' · ');
-  dmEl('dmDemanda').value = 'SIM'; // abrir uma unidade sem demanda é pra registrar uma
+  dmEl('dmDemanda').value = d.demanda || '';
   dmEl('dmEngenheiro').value = d.engenheiro || '';
   dmEl('dmServico').value = d.servico || '';
-  dmEl('dmEmpresa').value = d.empresa || '';
+  dmOpcoesEmpresa(String(d.empresa || '').toUpperCase());
   dmEl('dmOrcamento').value = d.orcamento == null ? '' : Number(d.orcamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   dmEl('dmAutorizacao').value = d.autorizacao || 'Aguardando';
   dmEl('dmStatus').value = d.status || 'Não iniciado';
   DM_CAMPOS_ADM.forEach(id=> dmEl(id).disabled = !IS_ADMIN);
   dmEl('dmDica').textContent = IS_ADMIN
-    ? 'A empresa informa o orçamento pelo login dela (você também pode preencher). Depois de ver o valor, autorize ou não a execução.'
+    ? 'Com o nº da demanda SIM preenchido, a escola passa a ter demanda e a empresa escolhida vê no login dela. A empresa informa o orçamento (você também pode preencher); depois de ver o valor, autorize ou não a execução.'
     : 'Depois de enviado, o ADM Geral autoriza ou não a execução.'
       + (d.autorizacao === 'Não autorizado' ? ' O orçamento anterior não foi autorizado: um valor novo volta para a análise do ADM.' : '');
   dmEl('dmErro').style.display = 'none';
   const btn = dmEl('dmSalvar');
   btn.disabled = false; btn.textContent = dmTextoBotao();
   dmModal.classList.add('open');
-  setTimeout(()=> dmEl(IS_ADMIN ? (tem ? 'dmServico' : 'dmEngenheiro') : 'dmOrcamento').focus(), 50);
+  setTimeout(()=> dmEl(IS_ADMIN ? (tem ? 'dmServico' : 'dmDemanda') : 'dmOrcamento').focus(), 50);
 }
 function fecharDemanda(){ dmModal.classList.remove('open'); dmEditando = null; }
 dmEl('dmModalClose').onclick = fecharDemanda;
@@ -3991,9 +4003,14 @@ dmEl('dmSalvar').onclick = async ()=>{
   }
   let dados;
   if(IS_ADMIN){
-    dados = { sigeam: d.sigeam, demanda: dmEl('dmDemanda').value, engenheiro: dmEl('dmEngenheiro').value.trim(),
-      servico: dmEl('dmServico').value.trim(), empresa: dmEl('dmEmpresa').value.trim(), orcamento: orc === null ? '' : orc,
+    dados = { sigeam: d.sigeam, demanda: dmEl('dmDemanda').value.trim(), engenheiro: dmEl('dmEngenheiro').value.trim(),
+      servico: dmEl('dmServico').value.trim(), empresa: dmEl('dmEmpresa').value, orcamento: orc === null ? '' : orc,
       autorizacao: dmEl('dmAutorizacao').value, status: dmEl('dmStatus').value };
+    // sem o nº da demanda SIM a escola não tem demanda
+    if(!dados.demanda){
+      if(!dmTemDemanda(d)){ erro.textContent = 'Informe o nº da demanda no SIM.'; erro.style.display = 'block'; dmEl('dmDemanda').focus(); return; }
+      if(!confirm('Sem o nº da demanda SIM, a escola "' + d.nome + '" deixa de ter demanda (sai da lista "Com demanda" e do login da empresa).\n\nContinuar?')) return;
+    }
   } else {
     if(orc === null){ erro.textContent = 'Informe o valor do orçamento.'; erro.style.display = 'block'; dmEl('dmOrcamento').focus(); return; }
     dados = { sigeam: d.sigeam, orcamento: orc };
@@ -4018,10 +4035,10 @@ dmEl('dmSalvar').onclick = async ()=>{
 // ---- exportar (o que está na tabela) ----
 dmEl('dmExport').onclick = ()=>{
   const lista = dmFiltradas();
-  const cab = ['SIGEAM','Ensino','Escola','Distrito','Endereço','Imóvel','Prédio locado','Demanda','Engenheiro responsável','Serviço','Empresa',
+  const cab = ['SIGEAM','Ensino','Escola','Distrito','Endereço','Imóvel','Prédio locado','Demanda SIM','Engenheiro responsável','Serviço','Empresa',
     'Orçamento (R$)','Status da autorização','Status do serviço','Atualizado em','Atualizado por'];
   const linhas = [cab.map(csvEscape).join(';')].concat(lista.map(d=> [d.sigeam, d.ensino, d.nome, d.distrito, d.endereco, d.imovel,
-    dmLocado(d) ? 'Sim' : 'Não', dmTemDemanda(d) ? 'Sim' : 'Não', d.engenheiro, d.servico, d.empresa,
+    dmLocado(d) ? 'Sim' : 'Não', dmTemDemanda(d) ? (dmNumero(d) || 'sem nº') : '', d.engenheiro, d.servico, d.empresa,
     d.orcamento == null ? '' : Number(d.orcamento).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     dmAutRotulo(d), dmStatusRotulo(d), d.atualizado_em, d.atualizado_por].map(csvEscape).join(';')));
   const blob = new Blob(['﻿' + linhas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
