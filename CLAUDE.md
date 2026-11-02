@@ -60,7 +60,7 @@ Depois delas, `ac_itens` e `pred_itens` (checklist da solicitação, JSON `[{t, 
 
 ## Planilha — aba Demandas (tela "Acompanhar demandas")
 
-Tela própria (3ª opção do "Visualizar" do topo), **sem relação com Escolas nem com Chamados**. A aba foi criada importando o `Demandas.csv` gerado da aba **Sigeam** do arquivo `sigeam.xlsx` (570 unidades). Colunas, achadas pelo nome do cabeçalho (sem acento, sem diferença de maiúsculas):
+Tela própria (3ª opção do "Visualizar" do topo; **é a tela que o site abre por padrão** — se a pessoa troca para Escolas/Chamados, reabre lá enquanto a aba estiver aberta, via `tre_visao` no sessionStorage), **sem relação com Escolas nem com Chamados**. A aba foi criada importando o `Demandas.csv` gerado da aba **Sigeam** do arquivo `sigeam.xlsx` (570 unidades). Colunas, achadas pelo nome do cabeçalho (sem acento, sem diferença de maiúsculas):
 
 `SIGEAM, ENSINO, NOME ESCOLA, LATITUDE, LONGITUDE, IMÓVEL, ENDEREÇO, DISTRITO` (base da Sigeam) + `DEMANDA SIM, ENGENHEIRO, SERVIÇO, EMPRESA, ORÇAMENTO, STATUS AUTORIZAÇÃO, STATUS SERVIÇO, ATUALIZADO EM, ATUALIZADO POR, SERVIÇO ITENS, OBSERVAÇÕES` (acompanhamento; as que faltarem o Apps Script cria no fim).
 

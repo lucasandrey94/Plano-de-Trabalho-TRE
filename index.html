@@ -4384,7 +4384,8 @@ setInterval(()=>{ if(modoDemandas && !document.hidden) carregarDemandas(true); }
 document.addEventListener('visibilitychange', ()=>{ if(modoDemandas && !document.hidden) carregarDemandas(true); });
 // o mapa não conseguiu enquadrar porque estava sem tamanho: enquadra quando a janela ganhar tamanho
 window.addEventListener('resize', ()=>{ if(modoDemandas && dmLista && dmEnquadramento === null) dmRenderMapa(dmFiltradas()); });
-if(safeGet('tre_visao') === 'demandas') entrarDemandas(); // reabre na tela em que a pessoa estava
+// o site abre em Demandas; se a pessoa trocou pra Escolas/Chamados, reabre onde ela estava
+if(safeGet('tre_visao') !== 'escolas') entrarDemandas();
 
 renderBtns(); renderChips(); renderDetail();
 
