@@ -1296,6 +1296,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <select id="dmFiltroAut" aria-label="Status da autorização"><option value="">Toda autorização</option></select>
     <select id="dmFiltroStatus" aria-label="Status do serviço"><option value="">Todo status do serviço</option></select>
     <select id="dmFiltroDistrito" aria-label="Distrito"><option value="">Todos os distritos</option></select>
+    <select id="dmFiltroImovel" aria-label="Imóvel"><option value="">Todos os imóveis</option></select>
     <select id="dmFiltroEmp" aria-label="Empresa"><option value="">Todas as empresas</option></select>
     <button class="exportbtn" id="dmExport">Exportar CSV</button>
   </div>
@@ -3757,7 +3758,7 @@ let dmSnapshot = null;
 let dmCarregando = null;   // carga em andamento (evita duas ao mesmo tempo)
 let dmMapa = null, dmCamada = null, dmNoMapa = [], dmPopupAberto = false, dmMapaPendente = false, dmEnquadramento = null;
 let dmEditando = null;     // demanda aberta no formulário
-const dmF = { demanda: null, aut:'', status:'', distrito:'', emp:'' };
+const dmF = { demanda: null, aut:'', status:'', distrito:'', imovel:'', emp:'' };
 (function(){ const s = safeGet('tre_dm_demanda'); if(s !== null) dmF.demanda = s === 'todas' ? '' : s; })();
 
 const dmEl = id => document.getElementById(id);
@@ -3898,6 +3899,7 @@ function dmMontarFiltros(){
   preencher('dmFiltroAut', 'aut', DM_AUT_ROTULOS);
   preencher('dmFiltroStatus', 'status', DM_STATUS);
   preencher('dmFiltroDistrito', 'distrito', unicos(d=> d.distrito));
+  preencher('dmFiltroImovel', 'imovel', unicos(d=> d.imovel));
   preencher('dmFiltroEmp', 'emp', unicos(d=> dmTemDemanda(d) ? d.empresa : ''));
   dmEl('dmFiltroDemanda').value = dmF.demanda || '';
 }
@@ -3911,6 +3913,7 @@ function dmFiltradas(){
     (!dmF.aut || dmAutRotulo(d) === dmF.aut) &&
     (!dmF.status || dmStatusRotulo(d) === dmF.status) &&
     (!dmF.distrito || d.distrito === dmF.distrito) &&
+    (!dmF.imovel || d.imovel === dmF.imovel) &&
     (!dmF.emp || d.empresa === dmF.emp) &&
     (!termo || normChave(d.nome).replace(/ /g, '').includes(termo) || String(d.sigeam) === busca
       || (dmNumero(d) && normChave(dmNumero(d)).replace(/ /g, '').includes(termo)))
@@ -4054,7 +4057,7 @@ function dmRenderMapa(lista){
 }
 
 // ---- filtros da tela ----
-[['dmFiltroDemanda','demanda'], ['dmFiltroAut','aut'], ['dmFiltroStatus','status'], ['dmFiltroDistrito','distrito'], ['dmFiltroEmp','emp']].forEach(([id, chave])=>{
+[['dmFiltroDemanda','demanda'], ['dmFiltroAut','aut'], ['dmFiltroStatus','status'], ['dmFiltroDistrito','distrito'], ['dmFiltroImovel','imovel'], ['dmFiltroEmp','emp']].forEach(([id, chave])=>{
   dmEl(id).addEventListener('change', (e)=>{
     dmF[chave] = e.target.value;
     if(chave === 'demanda') safeSet('tre_dm_demanda', dmF.demanda || 'todas');
